@@ -20,6 +20,8 @@ export default function App() {
     isMuted,
     qGeneration,
     qConfidence,
+    botTemperature,
+    botMood,
     canUndo,
     handleSquareClick,
     handleUndo,
@@ -65,6 +67,8 @@ export default function App() {
           onSelectMode={handleSelectMode}
           qGeneration={qGeneration}
           qConfidence={qConfidence}
+          botMood={botMood}
+          botTemperature={botTemperature}
           onResetQMemory={handleResetQMemory}
           disabled={isAiThinking}
         />

@@ -67,8 +67,20 @@ export function useTicTacToe() {
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [isMuted, setIsMuted] = useState(sound.isMuted);
   const [qGeneration, setQGeneration] = useState<number>(() => qLearningAgent.gamesLearned);
+  const [botTemperature, setBotTemperature] = useState<number>(() => qLearningAgent.botTemperature);
 
   const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Dynamic bot mood based on rubber-band temperature
+  const botMood = useMemo(() => {
+    if (botTemperature > 0.32) {
+      return { label: 'Casual' as const, colorClass: 'text-amber-700 bg-amber-100 border-amber-800' };
+    }
+    if (botTemperature >= 0.18) {
+      return { label: 'Focused' as const, colorClass: 'text-cobalt bg-cobalt-light border-cobalt' };
+    }
+    return { label: 'Locked In' as const, colorClass: 'text-terracotta bg-terracotta-light border-terracotta' };
+  }, [botTemperature]);
 
   // Sync scores to localStorage
   useEffect(() => {
@@ -133,6 +145,7 @@ export function useTicTacToe() {
       if (gameMode === 'ai-adaptive') {
         const nextGen = qLearningAgent.finalizeGame(winningPlayer, 'O');
         setQGeneration(nextGen);
+        setBotTemperature(qLearningAgent.botTemperature);
       }
     },
     [gameMode]
@@ -336,6 +349,7 @@ export function useTicTacToe() {
     sound.playClick();
     qLearningAgent.resetMemory();
     setQGeneration(0);
+    setBotTemperature(qLearningAgent.botTemperature);
   }, []);
 
   return {
@@ -350,6 +364,8 @@ export function useTicTacToe() {
     isMuted,
     qGeneration,
     qConfidence,
+    botTemperature,
+    botMood,
     canUndo: history.length > 0 && !isAiThinking,
     handleSquareClick,
     handleUndo,

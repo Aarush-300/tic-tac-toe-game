@@ -23,12 +23,13 @@ A tactile, accessible, neo-brutalist indie browser game built with **Vite**, **R
 2. **Tactician (Challenging - Vulnerable to Double Forks):**
    - Always executes immediate winning moves (100%) and blocks immediate threats (100%).
    - Uses depth-limited Minimax ($D=2$) with Softmax sampling ($\text{temperature} = 0.8$) over the top 2 candidate moves. Plays sharp tactical moves while remaining susceptible to clever fork traps.
-3. **Adaptive Bot (Canonical 8-Way Symmetry Q-Learning Agent):**
+3. **Adaptive Bot (Rubber-Banding Q-Learning Agent):**
    - **8-Way Board Symmetry Reduction ($D_4$ Group)**: Normalizes marks relative to active player (`SELF` vs `OPPONENT`) and maps all 8 rotations and reflections (0°, 90°, 180°, 270° and horizontal flips) to a single lexicographically minimal canonical state. Learns $8\times$ faster across all corners and edges.
-   - **15,000-Episode Pre-Warming**: Pre-trained in memory (<100ms) with decayed exploration ($\epsilon: 1.0 \to 0.1$) against heuristic opponents, learning center control and punishing aggressive corner openings.
-   - **1-Ply Tactical Reflex Filter**: Takes immediate winning moves 100% of the time, and blocks immediate opponent threats 90% of the time.
-   - **Backward Episode Replay & Counterfactual Imitation Learning**: Applies TD-return updates with step penalty ($-0.02$). On a loss, penalizes the bot's blunder and replays the human's winning trajectory into the bot's own policy with $+1.0$ reward, copying the human's winning strategy immediately.
-   - **Live Telemetry**: Real-time Q-confidence and win probability telemetry displayed in `JetBrains Mono` next to the generation badge.
+   - **Dynamic Softmax Rubber-Banding ($\tau \in [0.10, 0.50]$)**: Automatically adjusts temperature $\tau$ based on match outcomes: decreases by `0.06` when the human wins (bot tightens focus), increases by `0.08` when the bot wins (bot relaxes), and increases by `0.03` on draws.
+   - **Exploitable Pre-Training**: 150 episodes of pure self-play with uniform initial noise `[-0.05, +0.05]`, starting beatable rather than instantly converged.
+   - **Toned-Down 1-Ply Reflex Filter**: Converts immediate 1-move wins 85% of the time. Blocks human threats with focus-dependent probability $\text{clamp}(1.0 - \tau, 0.50, 0.85)$, allowing occasional tunnel-vision mistakes when relaxed.
+   - **Memory Decay (Forgetting Factor `0.97`)**: Gradually decays past lessons over 10–15 games, allowing players to trick the bot with new strategies.
+   - **Live Mood & Confidence Telemetry**: Real-time Mood badge (`Casual`, `Focused`, `Locked In`) and Q-value confidence displayed in `JetBrains Mono` next to the generation badge.
 4. **Local PvP**:
    - Turn-based play for two human players on the same device.
 

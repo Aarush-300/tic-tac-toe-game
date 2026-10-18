@@ -1,10 +1,11 @@
 import type { BoardState, Player, Winner } from '../types/game';
 import { checkWinner, getAvailableMoves } from './gameLogic';
 
-const Q_TABLE_STORAGE_KEY = 'ttt_q_table_v2';
-const Q_GAMES_COUNT_KEY = 'ttt_q_games_learned_v2';
+const Q_TABLE_STORAGE_KEY = 'ttt_q_table_v3';
+const Q_GAMES_COUNT_KEY = 'ttt_q_games_learned_v3';
+const Q_TEMPERATURE_KEY = 'ttt_q_temp_v3';
 const Q_VERSION_KEY = 'ttt_q_version';
-const CURRENT_Q_VERSION = 'q_table_v2';
+const CURRENT_Q_VERSION = 'q_table_v3';
 
 export interface QStep {
   state: string;
@@ -14,6 +15,13 @@ export interface QStep {
 export interface CanonicalResult {
   canonicalState: string;
   symIndex: number;
+}
+
+export type BotMoodLabel = 'Casual' | 'Focused' | 'Locked In';
+
+export interface BotMood {
+  label: BotMoodLabel;
+  colorClass: string;
 }
 
 /**
@@ -49,6 +57,7 @@ export const INVERSE_MAP: readonly (readonly number[])[] = FORWARD_MAP.map((fwd)
 export class QLearningAgent {
   public qTable: Record<string, Record<number, number>> = {};
   public gamesLearned: number = 0;
+  public botTemperature: number = 0.30; // Dynamic rubber-band temperature
   public isPrewarmed: boolean = false;
 
   private botTrajectory: QStep[] = [];
@@ -94,8 +103,18 @@ export class QLearningAgent {
     return { canonicalState, symIndex };
   }
 
+  /**
+   * Retrieves Q-value. Initializes unseen state-action entries with tiny uniform noise [-0.05, +0.05]
+   * so early play feels organic and varied.
+   */
   public getQ(stateStr: string, action: number): number {
-    return this.qTable[stateStr]?.[action] ?? 0.0;
+    if (!this.qTable[stateStr]) {
+      this.qTable[stateStr] = {};
+    }
+    if (this.qTable[stateStr][action] === undefined) {
+      this.qTable[stateStr][action] = (Math.random() - 0.5) * 0.10;
+    }
+    return this.qTable[stateStr][action];
   }
 
   public setQ(stateStr: string, action: number, value: number): void {
@@ -106,59 +125,63 @@ export class QLearningAgent {
   }
 
   /**
-   * Selects an action using canonical state mapping and greedy / epsilon-greedy policy.
+   * Returns current mood category and UI styling based on dynamic temperature tau.
+   * - Casual: tau > 0.32
+   * - Focused: tau in [0.18, 0.32]
+   * - Locked In: tau < 0.18
+   */
+  public getMood(): BotMood {
+    if (this.botTemperature > 0.32) {
+      return { label: 'Casual', colorClass: 'text-amber-700 bg-amber-100 border-amber-800' };
+    }
+    if (this.botTemperature >= 0.18) {
+      return { label: 'Focused', colorClass: 'text-cobalt bg-cobalt-light border-cobalt' };
+    }
+    return { label: 'Locked In', colorClass: 'text-terracotta bg-terracotta-light border-terracotta' };
+  }
+
+  /**
+   * Selects an action using Boltzmann Softmax sampling over the top 3 legal moves.
+   * Uses dynamic temperature tau for rubber-band difficulty.
    */
   public selectAction(
     board: BoardState,
     availableMoves: number[],
     activePlayer: Player = 'O',
-    epsilon: number = 0.0
+    temperature: number = this.botTemperature
   ): number {
     if (availableMoves.length === 0) return 0;
     if (availableMoves.length === 1) return availableMoves[0];
 
-    // Exploration
-    if (epsilon > 0 && Math.random() < epsilon) {
-      const randomIndex = Math.floor(Math.random() * availableMoves.length);
-      return availableMoves[randomIndex];
-    }
-
-    // Exploitation over canonical state
     const { canonicalState, symIndex } = this.getCanonical(board, activePlayer);
     const canAvailableMoves = availableMoves.map((m) => FORWARD_MAP[symIndex][m]);
 
-    let maxQ = -Infinity;
-    let candidateCanMoves: number[] = [];
+    // Rank legal moves by Q-value descending
+    const scoredMoves = canAvailableMoves.map((canA) => ({
+      canAction: canA,
+      qValue: this.getQ(canonicalState, canA),
+    }));
 
-    for (const canA of canAvailableMoves) {
-      const q = this.getQ(canonicalState, canA);
-      if (q > maxQ) {
-        maxQ = q;
-        candidateCanMoves = [canA];
-      } else if (Math.abs(q - maxQ) < 1e-5) {
-        candidateCanMoves.push(canA);
-      }
-    }
+    scoredMoves.sort((a, b) => b.qValue - a.qValue);
 
-    // Tie-breaker with small tau Softmax
-    let chosenCanMove: number;
-    if (candidateCanMoves.length === 1) {
-      chosenCanMove = candidateCanMoves[0];
-    } else {
-      const tau = 0.05;
-      const expScores = candidateCanMoves.map((m) =>
-        Math.exp((this.getQ(canonicalState, m) - maxQ) / tau)
-      );
-      const total = expScores.reduce((acc, v) => acc + v, 0);
-      const rand = Math.random() * total;
-      let cum = 0;
-      chosenCanMove = candidateCanMoves[0];
-      for (let i = 0; i < candidateCanMoves.length; i++) {
-        cum += expScores[i];
-        if (rand <= cum) {
-          chosenCanMove = candidateCanMoves[i];
-          break;
-        }
+    // Filter to top 3 legal moves
+    const topCandidates = scoredMoves.slice(0, 3);
+
+    // Boltzmann Softmax sampling over top candidates
+    const tau = Math.max(0.05, temperature);
+    const maxQ = Math.max(...topCandidates.map((c) => c.qValue));
+    const expScores = topCandidates.map((c) => Math.exp((c.qValue - maxQ) / tau));
+    const sumExp = expScores.reduce((acc, v) => acc + v, 0);
+
+    const rand = Math.random() * sumExp;
+    let cum = 0;
+    let chosenCanMove = topCandidates[0].canAction;
+
+    for (let i = 0; i < topCandidates.length; i++) {
+      cum += expScores[i];
+      if (rand <= cum) {
+        chosenCanMove = topCandidates[i].canAction;
+        break;
       }
     }
 
@@ -190,7 +213,6 @@ export class QLearningAgent {
       maxQ = 0.0;
     }
 
-    // Sigmoid probability scaling
     const winProb = Math.min(99, Math.max(1, Math.round(100 / (1 + Math.exp(-2.5 * maxQ)))));
     return { qValue: maxQ, winProb };
   }
@@ -214,46 +236,70 @@ export class QLearningAgent {
   }
 
   /**
-   * Updates the Q-table when a game against the human concludes.
-   * Performs backward propagation (TD/Monte Carlo return with step penalty)
-   * and Counterfactual Imitation Learning on loss.
+   * Updates the Q-table when a game against the human concludes:
+   * 1. Dynamic Softmax Rubber-Banding adjustments:
+   *    - Human Wins: tau -= 0.06 (clamps at 0.10) -> Bot focuses up.
+   *    - Bot Wins: tau += 0.08 (clamps at 0.50) -> Bot relaxes.
+   *    - Draw: tau += 0.03 (clamps at 0.50) -> Stalemate streaks open up.
+   * 2. Softer learning rate (alpha = 0.25).
+   * 3. Counterfactual Imitation Learning on loss (+0.5 reward).
+   * 4. Memory Decay (forgetting factor 0.97).
    */
   public finalizeGame(winner: Winner, aiPlayer: Player = 'O'): number {
-    if (this.botTrajectory.length === 0 && this.humanTrajectory.length === 0) {
-      return this.gamesLearned;
+    // 1. Dynamic Softmax Rubber-Banding Adjustment
+    if (winner !== null && winner !== aiPlayer && winner !== 'Draw') {
+      // Human won: tighten bot focus
+      this.botTemperature = Math.max(0.10, this.botTemperature - 0.06);
+    } else if (winner === aiPlayer) {
+      // Bot won: relax bot difficulty
+      this.botTemperature = Math.min(0.50, this.botTemperature + 0.08);
+    } else if (winner === 'Draw') {
+      // Stalemate: gently loosen up to allow decisive games
+      this.botTemperature = Math.min(0.50, this.botTemperature + 0.03);
     }
 
-    const alpha = 0.5;
+    const alpha = 0.25; // Softer live learning rate
     const gamma = 0.95;
     const stepPenalty = -0.02;
 
-    // 1. Bot Trajectory Update
-    let botReward = 0.0;
-    if (winner === aiPlayer) {
-      botReward = 1.0;
-    } else if (winner === 'Draw') {
-      botReward = 0.3;
-    } else if (winner !== null) {
-      botReward = -1.0;
+    // 2. Bot Trajectory Update
+    if (this.botTrajectory.length > 0) {
+      let botReward = 0.0;
+      if (winner === aiPlayer) {
+        botReward = 1.0;
+      } else if (winner === 'Draw') {
+        botReward = 0.3;
+      } else if (winner !== null) {
+        botReward = -1.0;
+      }
+
+      let G_bot = botReward;
+      for (let i = this.botTrajectory.length - 1; i >= 0; i--) {
+        const { state, action } = this.botTrajectory[i];
+        const curQ = this.getQ(state, action);
+        this.setQ(state, action, curQ + alpha * (G_bot - curQ));
+        G_bot = stepPenalty + gamma * G_bot;
+      }
     }
 
-    let G_bot = botReward;
-    for (let i = this.botTrajectory.length - 1; i >= 0; i--) {
-      const { state, action } = this.botTrajectory[i];
-      const curQ = this.getQ(state, action);
-      this.setQ(state, action, curQ + alpha * (G_bot - curQ));
-      G_bot = stepPenalty + gamma * G_bot;
-    }
-
-    // 2. Counterfactual Imitation Learning on Loss
-    // If the human won, reinforce the human's winning trajectory into the normalized policy
-    if (winner !== null && winner !== aiPlayer && winner !== 'Draw') {
-      let G_human = 1.0;
+    // 3. Counterfactual Imitation Learning on Loss
+    // Human won: learn human's winning strategy with a softer +0.5 reward
+    if (winner !== null && winner !== aiPlayer && winner !== 'Draw' && this.humanTrajectory.length > 0) {
+      let G_human = 0.5;
       for (let i = this.humanTrajectory.length - 1; i >= 0; i--) {
         const { state, action } = this.humanTrajectory[i];
         const curQ = this.getQ(state, action);
         this.setQ(state, action, curQ + alpha * (G_human - curQ));
         G_human = stepPenalty + gamma * G_human;
+      }
+    }
+
+    // 4. Memory Decay (forgetting factor of 0.97)
+    // Ensures old lessons slowly fade over 10-15 games
+    for (const state of Object.keys(this.qTable)) {
+      for (const action of Object.keys(this.qTable[state])) {
+        const actNum = Number(action);
+        this.qTable[state][actNum] *= 0.97;
       }
     }
 
@@ -271,18 +317,15 @@ export class QLearningAgent {
   }
 
   /**
-   * Pre-trains the agent with 15,000 episodes of self-play and heuristic opponents.
+   * Pre-trains the agent with 150 episodes of pure self-play.
+   * (No heuristic teacher; leaves realistic, human-exploitable blind spots).
    */
-  public preWarmPolicy(episodes: number = 15000): void {
-    const alpha = 0.3;
+  public preWarmPolicy(episodes: number = 150): void {
+    const alpha = 0.25;
     const gamma = 0.95;
     const stepPenalty = -0.02;
 
     for (let ep = 0; ep < episodes; ep++) {
-      const epsilon = 1.0 - (ep / episodes) * 0.9;
-      const isHeuristicOpponent = ep % 2 === 0;
-      const heuristicPlayer: Player = ep % 4 === 0 ? 'X' : 'O';
-
       const board: BoardState = Array(9).fill(null);
       let turn: Player = 'X';
       const trajX: QStep[] = [];
@@ -295,65 +338,10 @@ export class QLearningAgent {
 
         const { canonicalState, symIndex } = this.getCanonical(board, turn);
 
-        let chosenReal: number;
-        if (isHeuristicOpponent && turn === heuristicPlayer) {
-          // Heuristic opponent logic
-          let hMove: number | null = null;
-          // Check immediate win
-          for (const m of available) {
-            board[m] = turn;
-            if (checkWinner(board).winner === turn) {
-              hMove = m;
-              board[m] = null;
-              break;
-            }
-            board[m] = null;
-          }
-          // Check immediate block
-          if (hMove === null) {
-            const opp: Player = turn === 'X' ? 'O' : 'X';
-            for (const m of available) {
-              board[m] = opp;
-              if (checkWinner(board).winner === opp) {
-                hMove = m;
-                board[m] = null;
-                break;
-              }
-              board[m] = null;
-            }
-          }
-          // Center preference (70%)
-          if (hMove === null && available.includes(4) && Math.random() < 0.7) {
-            hMove = 4;
-          }
-          // Corner preference (60%)
-          if (hMove === null) {
-            const corners = available.filter((c) => c === 0 || c === 2 || c === 6 || c === 8);
-            if (corners.length > 0 && Math.random() < 0.6) {
-              hMove = corners[Math.floor(Math.random() * corners.length)];
-            }
-          }
-          chosenReal = hMove !== null ? hMove : available[Math.floor(Math.random() * available.length)];
-        } else {
-          // Q-policy with decayed epsilon
-          if (Math.random() < epsilon) {
-            chosenReal = available[Math.floor(Math.random() * available.length)];
-          } else {
-            const canAvail = available.map((m) => FORWARD_MAP[symIndex][m]);
-            let maxQ = -Infinity;
-            let bestCan = canAvail[0];
-            for (const canA of canAvail) {
-              const q = this.getQ(canonicalState, canA);
-              if (q > maxQ) {
-                maxQ = q;
-                bestCan = canA;
-              }
-            }
-            chosenReal = INVERSE_MAP[symIndex][bestCan];
-          }
-        }
-
+        // Self-play with Softmax selection at balanced temperature 0.30
+        const chosenReal = this.selectAction(board, available, turn, 0.30);
         const canAction = FORWARD_MAP[symIndex][chosenReal];
+
         if (turn === 'X') {
           trajX.push({ state: canonicalState, action: canAction });
         } else {
@@ -385,29 +373,35 @@ export class QLearningAgent {
     this.isPrewarmed = true;
   }
 
+  /**
+   * Resets memory, purges table, restores baseline 0.30 temperature, and runs 150 self-play episodes.
+   */
   public resetMemory(): void {
     this.qTable = {};
     this.gamesLearned = 0;
+    this.botTemperature = 0.30;
     this.botTrajectory = [];
     this.humanTrajectory = [];
-    this.preWarmPolicy(15000);
+    this.preWarmPolicy(150);
     this.saveToStorage();
   }
 
   private initOrMigrateStorage(): void {
     if (typeof window === 'undefined') {
-      this.preWarmPolicy(15000);
+      this.preWarmPolicy(150);
       return;
     }
 
     try {
       const storedVersion = localStorage.getItem(Q_VERSION_KEY);
       if (storedVersion !== CURRENT_Q_VERSION) {
-        // Purge old under-trained table and run 15k pre-training
+        // Purge over-trained table and initialize v3
         localStorage.removeItem(Q_TABLE_STORAGE_KEY);
         localStorage.removeItem(Q_GAMES_COUNT_KEY);
+        localStorage.removeItem(Q_TEMPERATURE_KEY);
         localStorage.setItem(Q_VERSION_KEY, CURRENT_Q_VERSION);
-        this.preWarmPolicy(15000);
+        this.botTemperature = 0.30;
+        this.preWarmPolicy(150);
         this.saveToStorage();
         return;
       }
@@ -417,18 +411,27 @@ export class QLearningAgent {
         this.gamesLearned = parseInt(savedCount, 10) || 0;
       }
 
+      const savedTemp = localStorage.getItem(Q_TEMPERATURE_KEY);
+      if (savedTemp !== null) {
+        const parsed = parseFloat(savedTemp);
+        if (!isNaN(parsed) && parsed >= 0.10 && parsed <= 0.50) {
+          this.botTemperature = parsed;
+        }
+      }
+
       const savedTable = localStorage.getItem(Q_TABLE_STORAGE_KEY);
       if (savedTable) {
         this.qTable = JSON.parse(savedTable);
         this.isPrewarmed = true;
       } else {
-        this.preWarmPolicy(15000);
+        this.preWarmPolicy(150);
         this.saveToStorage();
       }
     } catch {
       this.qTable = {};
       this.gamesLearned = 0;
-      this.preWarmPolicy(15000);
+      this.botTemperature = 0.30;
+      this.preWarmPolicy(150);
     }
   }
 
@@ -438,8 +441,9 @@ export class QLearningAgent {
       localStorage.setItem(Q_VERSION_KEY, CURRENT_Q_VERSION);
       localStorage.setItem(Q_TABLE_STORAGE_KEY, JSON.stringify(this.qTable));
       localStorage.setItem(Q_GAMES_COUNT_KEY, String(this.gamesLearned));
+      localStorage.setItem(Q_TEMPERATURE_KEY, this.botTemperature.toFixed(2));
     } catch {
-      // Ignore storage quota or privacy mode error
+      // Ignore storage errors
     }
   }
 }

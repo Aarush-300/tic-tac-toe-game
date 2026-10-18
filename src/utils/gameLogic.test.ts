@@ -8,7 +8,7 @@ import {
   getAdaptiveBotMove,
   softmaxSample,
 } from './aiEngine';
-import { QLearningAgent, INVERSE_MAP, FORWARD_MAP } from './qLearning';
+import { QLearningAgent, INVERSE_MAP } from './qLearning';
 
 describe('Tic-Tac-Toe Game Logic & AI Engine', () => {
   describe('Win and Draw Detection', () => {
@@ -173,10 +173,9 @@ describe('Tic-Tac-Toe Game Logic & AI Engine', () => {
     });
   });
 
-  describe('Adaptive Bot (8-Way Symmetry & Tabular Q-Learning)', () => {
+  describe('Adaptive Bot (Rubber-Banding & Tabular Q-Learning)', () => {
     it('verifies that all 8 rotated and reflected board states resolve to the exact same canonical key', () => {
       const agent = new QLearningAgent();
-      // Asymmetric board: X at (0, 7), O at 4
       const baseBoard: BoardState = [
         'X', null, null,
         null, 'O', null,
@@ -185,7 +184,6 @@ describe('Tic-Tac-Toe Game Logic & AI Engine', () => {
 
       const canonicalKeys = new Set<string>();
 
-      // Generate all 8 transformed board variations
       for (let k = 0; k < 8; k++) {
         const inv = INVERSE_MAP[k];
         const transformedBoard: BoardState = new Array(9);
@@ -197,11 +195,59 @@ describe('Tic-Tac-Toe Game Logic & AI Engine', () => {
         canonicalKeys.add(canonicalState);
       }
 
-      // All 8 symmetry transformations MUST reduce to the identical canonical key
       expect(canonicalKeys.size).toBe(1);
     });
 
-    it('selects legal moves from open squares', () => {
+    it('dynamic rubber-banding decreases temperature on human win and increases on bot win/draw', () => {
+      const agent = new QLearningAgent();
+      agent.botTemperature = 0.30;
+      expect(agent.getMood().label).toBe('Focused');
+
+      // Human wins: bot tightens focus
+      agent.finalizeGame('X', 'O');
+      expect(agent.botTemperature).toBeCloseTo(0.24, 2);
+      expect(agent.getMood().label).toBe('Focused');
+
+      // Human wins twice more -> Locked In (< 0.18)
+      agent.finalizeGame('X', 'O');
+      agent.finalizeGame('X', 'O');
+      expect(agent.botTemperature).toBeCloseTo(0.12, 2);
+      expect(agent.getMood().label).toBe('Locked In');
+
+      // Clamps at minimum 0.10
+      agent.finalizeGame('X', 'O');
+      expect(agent.botTemperature).toBe(0.10);
+
+      // Bot wins: bot relaxes (+0.08)
+      agent.finalizeGame('O', 'O');
+      expect(agent.botTemperature).toBeCloseTo(0.18, 2);
+
+      // Draw: bot gently loosens (+0.03)
+      agent.finalizeGame('Draw', 'O');
+      expect(agent.botTemperature).toBeCloseTo(0.21, 2);
+
+      // Winning streak relaxes bot up to maximum 0.50 (Casual)
+      for (let i = 0; i < 6; i++) {
+        agent.finalizeGame('O', 'O');
+      }
+      expect(agent.botTemperature).toBe(0.50);
+      expect(agent.getMood().label).toBe('Casual');
+    });
+
+    it('decays Q-table entries by 0.97 forgetting factor on game finalization', () => {
+      const agent = new QLearningAgent();
+      const testState = '.........';
+      agent.setQ(testState, 0, 1.0);
+
+      const beforeQ = agent.getQ(testState, 0);
+      expect(beforeQ).toBe(1.0);
+
+      agent.finalizeGame('Draw', 'O');
+      const afterQ = agent.getQ(testState, 0);
+      expect(afterQ).toBeCloseTo(0.97, 4);
+    });
+
+    it('selects legal moves from open squares using Softmax over top 3 moves', () => {
       const agent = new QLearningAgent();
       const board: BoardState = [
         'X', 'O', 'X',
@@ -209,96 +255,25 @@ describe('Tic-Tac-Toe Game Logic & AI Engine', () => {
         'O', 'X', null,
       ];
       const available = getAvailableMoves(board);
-      const action = agent.selectAction(board, available, 'O', 0.0);
+      const action = agent.selectAction(board, available, 'O', agent.botTemperature);
       expect(available).toContain(action);
     });
 
-    it('immediately drops Q-value for a losing move and selects an alternative defensive move in Game 2 (including rotated states)', () => {
-      const agent = new QLearningAgent();
-
-      // Board state: X in corners 0 and 8, O in center 4
-      // Human plays diagonal opening:
-      // X . .
-      // . O .
-      // . . X
-      const board: BoardState = [
-        'X', null, null,
-        null, 'O', null,
-        null, null, 'X',
-      ];
-
-      const { canonicalState, symIndex } = agent.getCanonical(board, 'O');
-
-      // Say the losing move is corner 2 (which falls into human fork trap)
-      const losingRealMove = 2;
-      const losingCanMove = FORWARD_MAP[symIndex][losingRealMove];
-
-      // Safe defensive move is edge 1
-      const safeRealMove = 1;
-      const safeCanMove = FORWARD_MAP[symIndex][safeRealMove];
-
-      // Artificially set initial Q values so losing move was preferred
-      agent.setQ(canonicalState, losingCanMove, 0.5);
-      agent.setQ(canonicalState, safeCanMove, 0.2);
-
-      const qBefore = agent.getQ(canonicalState, losingCanMove);
-      expect(qBefore).toBe(0.5);
-
-      // Simulate Game 1 loss: bot played losingMove, human won
-      agent.recordBotStep(board, losingRealMove, 'O');
-      agent.recordHumanStep(board, 6, 'X'); // Human sets up winning fork
-      agent.finalizeGame('X', 'O'); // Bot loses (-1.0 reward)
-
-      // Q-value for losing move must drop significantly
-      const qAfter = agent.getQ(canonicalState, losingCanMove);
-      expect(qAfter).toBeLessThan(0.0);
-      expect(qAfter).toBeLessThan(agent.getQ(canonicalState, safeCanMove));
-
-      // Game 2 on same board: bot must NOT pick the losing move
-      const availableMoves = getAvailableMoves(board);
-      const nextMove = agent.selectAction(board, availableMoves, 'O', 0.0);
-      expect(nextMove).not.toBe(losingRealMove);
-
-      // Game 2 on 90° ROTATED board:
-      // . . X
-      // . O .
-      // X . .
-      const rotatedBoard: BoardState = [
-        null, null, 'X',
-        null, 'O', null,
-        'X', null, null,
-      ];
-      // On this rotated board, the equivalent losing corner is 8 (or 0)
-      const rotatedLosingMove = FORWARD_MAP[1][losingRealMove]; // 90° rotation of move 2 is 8
-      const rotatedAvailable = getAvailableMoves(rotatedBoard);
-      const rotatedNextMove = agent.selectAction(rotatedBoard, rotatedAvailable, 'O', 0.0);
-      expect(rotatedNextMove).not.toBe(rotatedLosingMove);
-    });
-
-    it('1-ply reflex filter executes immediate win 100% of the time in getAdaptiveBotMove', () => {
+    it('1-ply reflex filter executes immediate win ~85% of the time in getAdaptiveBotMove', () => {
       const board: BoardState = [
         'O', 'O', null,
         'X', 'X', null,
         null, null, null,
       ];
-      for (let i = 0; i < 20; i++) {
-        expect(getAdaptiveBotMove(board, 'O')).toBe(2);
-      }
-    });
-
-    it('1-ply reflex filter blocks immediate human threat ~90% of the time in getAdaptiveBotMove', () => {
-      const board: BoardState = [
-        'X', 'X', null,
-        'O', null, null,
-        null, null, null,
-      ];
-      let blockCount = 0;
-      for (let i = 0; i < 40; i++) {
+      let winCount = 0;
+      for (let i = 0; i < 50; i++) {
         if (getAdaptiveBotMove(board, 'O') === 2) {
-          blockCount++;
+          winCount++;
         }
       }
-      expect(blockCount).toBeGreaterThanOrEqual(30);
+      // ~85% conversion rate: out of 50, expect >= 32
+      expect(winCount).toBeGreaterThanOrEqual(32);
+      expect(winCount).toBeLessThanOrEqual(50);
     });
 
     it('provides valid real-time Q-confidence and win probability telemetry', () => {
@@ -310,12 +285,16 @@ describe('Tic-Tac-Toe Game Logic & AI Engine', () => {
       expect(winProb).toBeLessThanOrEqual(99);
     });
 
-    it('resetMemory clears learned games count and re-seeds 15k baseline', () => {
+    it('resetMemory clears learned games count, restores 0.30 temperature, and re-seeds baseline', () => {
       const agent = new QLearningAgent();
       agent.gamesLearned = 14;
+      agent.botTemperature = 0.12;
       agent.resetMemory();
+
       expect(agent.gamesLearned).toBe(0);
-      expect(Object.keys(agent.qTable).length).toBeGreaterThanOrEqual(500);
+      expect(agent.botTemperature).toBe(0.30);
+      expect(agent.getMood().label).toBe('Focused');
+      expect(Object.keys(agent.qTable).length).toBeGreaterThanOrEqual(20);
     });
   });
 });

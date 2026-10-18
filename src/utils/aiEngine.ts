@@ -214,11 +214,11 @@ export function getTacticianMove(board: BoardState, aiPlayer: Player = 'O'): num
 }
 
 /**
- * ADAPTIVE BOT (Tabular Q-Learning Agent with 1-Ply Reflex Filter)
- * - 1-Ply Tactical Reflex: Takes immediate wins 100% of the time.
- * - Blocks immediate human threats 90% of the time (if experienced >= 3 games or pre-warmed).
- * - Consults the canonical Q-table (epsilon = 0.0) for strategic evaluations and forks.
- * - Records state transition for end-of-game reinforcement learning.
+ * ADAPTIVE BOT (Rubber-Banding Q-Learning Agent)
+ * - 1-Ply Reflex: Takes immediate wins 85% of the time (leaves human-like blunders).
+ * - Blocks immediate human threats with blockProbability = clamp(1.0 - botTemperature, 0.50, 0.85).
+ * - Uses dynamic temperature Boltzmann Softmax sampling over top 3 legal moves.
+ * - Records state transitions for live counterfactual imitation and memory decay.
  */
 export function getAdaptiveBotMove(board: BoardState, aiPlayer: Player = 'O'): number | null {
   const availableMoves = getAvailableMoves(board);
@@ -226,25 +226,33 @@ export function getAdaptiveBotMove(board: BoardState, aiPlayer: Player = 'O'): n
 
   const humanPlayer: Player = aiPlayer === 'X' ? 'O' : 'X';
 
-  // 1. Immediate 1-Move Win Check (100% execution)
+  // 1. Immediate 1-Move Win Check (85% execution rate)
   const immediateWin = findImmediateWin(board, aiPlayer);
-  if (immediateWin !== null) {
+  if (immediateWin !== null && Math.random() < 0.85) {
     qLearningAgent.recordBotStep(board, immediateWin, aiPlayer);
     return immediateWin;
   }
 
-  // 2. Immediate 1-Move Threat Block Check
+  // 2. Immediate 1-Move Threat Block Check based on dynamic focus (50% to 85%)
   const immediateThreat = findImmediateWin(board, humanPlayer);
   if (immediateThreat !== null) {
-    const isExperienced = qLearningAgent.isPrewarmed || qLearningAgent.gamesLearned >= 3;
-    if (isExperienced && Math.random() < 0.9) {
+    const blockProbability = Math.min(
+      0.85,
+      Math.max(0.50, 1.0 - qLearningAgent.botTemperature)
+    );
+    if (Math.random() < blockProbability) {
       qLearningAgent.recordBotStep(board, immediateThreat, aiPlayer);
       return immediateThreat;
     }
   }
 
-  // 3. Consult Q-table with 0.0 exploration (pure greedy exploitation with tau tie-breaking)
-  const chosenMove = qLearningAgent.selectAction(board, availableMoves, aiPlayer, 0.0);
+  // 3. Consult Q-table using dynamic temperature Boltzmann Softmax over top 3 moves
+  const chosenMove = qLearningAgent.selectAction(
+    board,
+    availableMoves,
+    aiPlayer,
+    qLearningAgent.botTemperature
+  );
   qLearningAgent.recordBotStep(board, chosenMove, aiPlayer);
   return chosenMove;
 }
