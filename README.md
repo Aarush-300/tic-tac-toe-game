@@ -1,93 +1,103 @@
-# 🎮 Neon Tic-Tac-Toe (Unbeatable Minimax AI)
+# 🖋️ Tic-Tac-Toe // Paper Edition
 
-A production-ready, accessible, and high-performance Tic-Tac-Toe browser game engineered with **Vite**, **React 19**, **TypeScript**, and **Tailwind CSS**.
-
----
-
-## ✨ Features
-
-- **3 Dynamic Game Modes**:
-  1. **Player vs. Player (Local)**: Alternating turns with local player controls.
-  2. **Player vs. AI (Easy)**: Casual randomized moves with a simulated natural 300ms reaction delay.
-  3. **Player vs. AI (Unbeatable Master)**: Optimal moves calculated using the **Minimax algorithm with alpha-beta pruning** — mathematically impossible to beat.
-- **Move History & Undo**:
-  - Full history stack allowing undo.
-  - In AI mode, automatically rolls back both the AI's response and the player's move so the player can rethink their turn.
-- **Score Tracking & Persistence**:
-  - Live scoreboard tracking wins for X, O, and Ties/Draws.
-  - Automatic persistence to `localStorage` for scores and selected game mode.
-  - "Reset Scores" and "New Round" controls.
-- **Cyberpunk Dark-Mode Aesthetic**:
-  - Dark-mode first (`slate-950` / `slate-900`) with high-contrast neon cyan (`#06b6d4`) for X and neon rose (`#f43f5e`) for O.
-  - Pulsing emerald glow keyframe animation highlights the winning 3-square combination.
-- **Web Audio Effects**:
-  - Synthesized retro audio using the native **Web Audio API** (zero external assets or audio latency).
-  - Quick mute/unmute toggle.
-- **Accessibility & Keyboard Navigation (WCAG Compliant)**:
-  - All cells are `<button>` elements with real-time `aria-label` updates (e.g. `"Row 1, Column 2, marked X"`).
-  - Arrow keys (`↑`, `↓`, `←`, `→`) navigate focus across the 3x3 grid.
-  - `Enter` / `Space` places marks.
-  - Hotkeys: `U` (Undo), `N` (New Round), `R` (Reset Scores).
+A tactile, accessible, neo-brutalist indie browser game built with **Vite**, **React 19**, **TypeScript**, and **Tailwind CSS**. Features human-like probabilistic AI opponents and an in-browser tabular **Q-Learning** reinforcement agent.
 
 ---
 
-## 🏗️ Architecture & Project Structure
+## ✨ Features & Architecture
+
+### 1. Tactile Neo-Brutalist Paper Aesthetic
+- **Warm Paper Canvas**: `#F4F1EA` paper background with an authentic ink dot-grid pattern.
+- **Solid Charcoal Ink Borders**: `#18181B` 2px borders with hard offset brutalist shadows (`shadow-[4px_4px_0px_0px_#18181B]`).
+- **Accent Inks**: Terracotta / International Orange (`#E04F33`) for Player X, Cobalt Blue (`#2563EB`) for Player O.
+- **Typography**: Google Fonts **Space Grotesk** for clean editorial headings and **JetBrains Mono** for scores, stats, and badges.
+- **Physical Micro-Interactions**: Mechanical button keys with hover elevation and active physical displacement (`active:translate-x-[2px] active:translate-y-[2px] active:shadow-none`).
+- **Animated Ink Strokes**: Marks animate via SVG `stroke-dasharray` and `stroke-dashoffset` as if hand-drawn on paper.
+- **Tactile Sound**: Web Audio API synthesizing organic woodblock / key clicks with a zero-latency mute toggle.
+
+### 2. Upgraded AI Opponents (`src/utils/aiEngine.ts` & `src/utils/qLearning.ts`)
+1. **Club Player (Casual - Human-like & Beatable):**
+   - 1-step lookahead only (never computes deep forks).
+   - Takes immediate wins ~90% of the time; blocks immediate threats ~75% of the time.
+   - Selects opening moves using weighted positional heuristics (Center 30%, Corners 50%, Edges 20%) with Softmax temperature noise for organic variety.
+2. **Tactician (Challenging - Vulnerable to Double Forks):**
+   - Always executes immediate winning moves (100%) and blocks immediate threats (100%).
+   - Uses depth-limited Minimax ($D=2$) with Softmax sampling ($\text{temperature} = 0.8$) over the top 2 candidate moves. Plays sharp tactical moves while remaining susceptible to clever fork traps.
+3. **Adaptive Bot (In-Browser Tabular Q-Learning Agent):**
+   - Learns in real-time from every round played against you.
+   - Pre-warmed with 300 episodes of self-play and updates state-action values $Q(s, a)$ via Bellman reinforcement ($\alpha = 0.2, \gamma = 0.9$).
+   - Displays real-time training generation badge (`Gen #X`) with a one-click memory wipe control.
+4. **Local PvP**:
+   - Turn-based play for two human players on the same device.
+
+### 3. Controls & Accessibility
+- Full keyboard arrow-key navigation (`↑`, `↓`, `←`, `→`, `Home`, `End`).
+- `Enter` or `Space` to place marks.
+- Global Hotkeys: `U` (Undo), `N` (New Round), `R` (Reset Scores).
+- Multi-step undo rolls back both player and AI turns.
+- Full WCAG accessibility with dynamic `aria-label` updates on all grid cells.
+
+---
+
+## 🏗️ Project Structure
 
 ```text
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml          # GitHub Pages CI/CD workflow
+│       └── deploy.yml          # Automated GitHub Pages CI/CD workflow
 ├── public/
-│   └── favicon.svg             # Neon themed SVG favicon
+│   └── favicon.svg             # Neo-brutalist paper favicon
 ├── src/
 │   ├── components/
-│   │   ├── Board.tsx           # Accessible 3x3 interactive grid
+│   │   ├── Board.tsx           # Accessible 3x3 mechanical grid
 │   │   ├── Controls.tsx        # Undo, New Round, and Reset controls
 │   │   ├── Footer.tsx          # Keyboard shortcut hints
-│   │   ├── GameModeSelector.tsx# PvP, Easy AI, Unbeatable AI switchers
-│   │   ├── Header.tsx          # Branding and sound toggle
-│   │   ├── Scoreboard.tsx      # X / Ties / O live stats & active turn
-│   │   ├── Square.tsx          # Grid button with hover & winning glow
+│   │   ├── GameModeSelector.tsx# PvP, Club, Tactician, Adaptive Bot tabs
+│   │   ├── Header.tsx          # Typographic header & tactile sound toggle
+│   │   ├── Scoreboard.tsx      # Terracotta / Cobalt score tracker
+│   │   ├── Square.tsx          # Mechanical cell with animated SVG ink marks
 │   │   └── StatusBanner.tsx    # Turn indicator & outcome announcements
 │   ├── hooks/
-│   │   └── useTicTacToe.ts     # Centralized state management & game engine
+│   │   └── useTicTacToe.ts     # Game state, turn transitions & Q-learning integration
 │   ├── types/
 │   │   └── game.ts             # TypeScript definitions & interfaces
 │   ├── utils/
-│   │   ├── gameLogic.ts        # Win detection, Minimax & alpha-beta pruning
+│   │   ├── aiEngine.ts         # Club Player, Tactician, and Softmax sampler
+│   │   ├── gameLogic.ts        # Win/Draw detection & move validators
 │   │   ├── gameLogic.test.ts   # Formal verification test suite
-│   │   └── sound.ts            # Web Audio API sound synthesizer
+│   │   ├── qLearning.ts        # Tabular Q-learning agent with localStorage
+│   │   └── sound.ts            # Web Audio API tactile sound generator
 │   ├── App.tsx                 # Root application component
-│   ├── App.test.tsx            # Component & UI integration tests
-│   ├── index.css               # Tailwind CSS directives & neon glow styles
-│   └── main.tsx                # React root entry point
-├── firebase.json               # Firebase Hosting SPA configuration
-├── netlify.toml                # Netlify SPA routing configuration
-├── vercel.json                 # Vercel SPA routing configuration
-├── tailwind.config.js          # Tailwind CSS theme extension
+│   ├── App.test.tsx            # UI & interaction integration tests
+│   ├── index.css               # Dot-grid pattern & SVG drawing keyframes
+│   └── main.tsx                # Entry point
+├── firebase.json               # Firebase Hosting configuration
+├── netlify.toml                # Netlify SPA redirect rules
+├── vercel.json                 # Vercel SPA rewrites
+├── tailwind.config.js          # Neo-brutalist theme & brutal shadows
 └── vite.config.ts              # Vite & Vitest configuration
 ```
 
 ---
 
-## 🚀 Quick Start & Local Development
+## 🚀 Local Development & Verification
 
 ### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-### 2. Start Development Server
+### 2. Start Dev Server
 ```bash
 npm run dev
 ```
 
-### 3. Run Formal Verification Unit Tests
+### 3. Run Automated Tests
 ```bash
 npm test
 ```
 
-### 4. TypeScript Strict Type-Check
+### 4. Strict Type-Check
 ```bash
 npx tsc -b
 ```
@@ -97,59 +107,17 @@ npx tsc -b
 npm run build
 ```
 
-### 6. Preview Production Build Locally
+### 6. Local Preview
 ```bash
 npm run preview
 ```
 
 ---
 
-## 🚢 Single-Command Production Deployments
+## 🚢 Single-Command Deployments
 
-### Option A: Local Preview
-Preview the production `dist/` bundle locally:
-```bash
-npm run preview
-```
-
-### Option B: Vercel
-Deploy directly to Vercel production:
-```bash
-npx vercel --prod
-```
-
-### Option C: Netlify
-Deploy directly to Netlify production:
-```bash
-npx netlify deploy --prod --dir=dist
-```
-
-### Option D: Firebase Hosting
-Deploy directly to Firebase Hosting:
-```bash
-npx firebase-tools deploy --only hosting
-```
-
-### Option E: GitHub Pages
-Push to the `main` branch to trigger the automated GitHub Actions pipeline (`.github/workflows/deploy.yml`), or deploy manually using:
-```bash
-npx gh-pages -d dist
-```
-
----
-
-## 🧪 Formal Verification Results
-
-- **15 Game Logic Tests**:
-  - All 8 winning lines validated for both `X` and `O`.
-  - Stalemate / Draw detection with no remaining squares.
-  - Minimax AI never loses across 100 randomized games as Player 1 (`X`).
-  - Minimax AI never loses across 100 randomized games as Player 2 (`O`).
-  - Minimax vs. Minimax always concludes in a draw.
-  - Immediate winning and immediate blocking behavior verified.
-- **5 UI Integration Tests**:
-  - Board rendering with 9 accessible buttons.
-  - Dynamic `aria-label` updates on move.
-  - Round reset and undo mechanisms verified.
-- **TypeScript**:
-  - Strict mode enabled (`tsc -b`), 0 type errors.
+- **Local Preview**: `npm run preview`
+- **Vercel**: `npx vercel --prod`
+- **Netlify**: `npx netlify deploy --prod --dir=dist`
+- **Firebase Hosting**: `npx firebase-tools deploy --only hosting`
+- **GitHub Pages**: Push to `main` (automated via [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml))

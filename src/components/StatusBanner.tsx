@@ -1,5 +1,4 @@
 import React from 'react';
-import { Trophy, Bot, Loader2, Sparkles, MinusCircle } from 'lucide-react';
 import type { GameMode, Player, Winner } from '../types/game';
 
 interface StatusBannerProps {
@@ -18,44 +17,38 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
   if (winner) {
     if (winner === 'Draw') {
       return (
-        <div className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold text-sm tracking-wide shadow-md mb-4 animate-fade-in">
-          <MinusCircle className="w-4 h-4 text-amber-400" />
-          <span>It's a Draw! Both sides held the line.</span>
+        <div className="w-full flex items-center justify-center gap-2 py-2 px-4 border-2 border-ink bg-paper-muted text-ink font-mono font-bold text-xs tracking-wider shadow-brutal-sm mb-4">
+          <span>// STALEMATE: NO CONTEST</span>
         </div>
       );
     }
 
     const isX = winner === 'X';
-    const winnerTitle =
+    const outcomeText =
       winner === 'X'
         ? gameMode === 'pvp'
-          ? 'Player X Wins!'
-          : 'You Won!'
+          ? 'VICTORY: PLAYER X WINS'
+          : 'ROUND WON: YOU PREVAILED'
         : gameMode === 'pvp'
-        ? 'Player O Wins!'
-        : 'AI Wins!';
+        ? 'VICTORY: PLAYER O WINS'
+        : 'ROUND OVER: OPPONENT PREVAILED';
 
     return (
       <div
-        className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm tracking-wide shadow-lg mb-4 animate-fade-in ${
-          isX
-            ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-200 shadow-cyan-500/20 glow-box-cyan'
-            : 'bg-rose-500/15 border border-rose-400/50 text-rose-200 shadow-rose-500/20 glow-box-pink'
+        className={`w-full flex items-center justify-center gap-2 py-2 px-4 border-2 border-ink font-mono font-bold text-xs tracking-wider shadow-brutal-sm mb-4 ${
+          isX ? 'bg-terracotta text-white' : 'bg-cobalt text-white'
         }`}
       >
-        <Trophy className={`w-4 h-4 ${isX ? 'text-cyan-300' : 'text-rose-300'}`} />
-        <span>{winnerTitle}</span>
-        <Sparkles className="w-4 h-4 text-amber-300" />
+        <span>// {outcomeText}</span>
       </div>
     );
   }
 
   if (isAiThinking) {
     return (
-      <div className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-850 border border-slate-700/60 text-slate-300 text-sm font-medium mb-4 animate-pulse">
-        <Bot className="w-4 h-4 text-rose-400" />
-        <span>AI is calculating optimal move...</span>
-        <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+      <div className="w-full flex items-center justify-center gap-2 py-2 px-4 border-2 border-ink bg-paper-surface text-ink font-mono text-xs shadow-brutal-sm mb-4">
+        <span className="w-2 h-2 rounded-full bg-ink inline-block animate-ping" />
+        <span>OPPONENT EVALUATING GRID...</span>
       </div>
     );
   }
@@ -64,19 +57,17 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
   const turnLabel =
     isXTurn
       ? gameMode === 'pvp'
-        ? "Player X's Turn"
-        : 'Your Turn (X)'
+        ? 'TURN: PLAYER X'
+        : 'YOUR TURN (X)'
       : gameMode === 'pvp'
-      ? "Player O's Turn"
-      : "AI's Turn (O)";
+      ? 'TURN: PLAYER O'
+      : "OPPONENT'S TURN (O)";
 
   return (
-    <div className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-300 text-sm font-medium mb-4">
+    <div className="w-full flex items-center justify-center gap-2 py-2 px-4 border-2 border-ink bg-paper-surface text-ink font-mono text-xs shadow-brutal-sm mb-4">
       <span
-        className={`w-2.5 h-2.5 rounded-full ${
-          isXTurn
-            ? 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]'
-            : 'bg-rose-400 shadow-[0_0_8px_#fb7185]'
+        className={`w-2.5 h-2.5 border border-ink inline-block ${
+          isXTurn ? 'bg-terracotta' : 'bg-cobalt'
         }`}
       />
       <span>{turnLabel}</span>

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BoardState, GameMode, Player, ScoreState, Winner, WinningLine } from '../types/game';
-import { checkWinner, getAvailableMoves, getBestMove, getRandomMove } from '../utils/gameLogic';
+import { checkWinner, getAvailableMoves } from '../utils/gameLogic';
+import { getClubPlayerMove, getTacticianMove, getAdaptiveBotMove } from '../utils/aiEngine';
+import { qLearningAgent } from '../utils/qLearning';
 import { sound } from '../utils/sound';
 
 interface HistoryStep {
@@ -10,8 +12,8 @@ interface HistoryStep {
   winningLine: WinningLine;
 }
 
-const STORAGE_KEY_SCORES = 'ttt_scores_v1';
-const STORAGE_KEY_MODE = 'ttt_gamemode_v1';
+const STORAGE_KEY_SCORES = 'ttt_scores_v2';
+const STORAGE_KEY_MODE = 'ttt_gamemode_v2';
 
 const INITIAL_BOARD: BoardState = Array(9).fill(null);
 const INITIAL_SCORES: ScoreState = { x: 0, o: 0, ties: 0 };
@@ -37,16 +39,21 @@ function getInitialScores(): ScoreState {
 }
 
 function getInitialMode(): GameMode {
-  if (typeof window === 'undefined') return 'pvp';
+  if (typeof window === 'undefined') return 'ai-casual';
   try {
     const saved = localStorage.getItem(STORAGE_KEY_MODE);
-    if (saved === 'pvp' || saved === 'ai-easy' || saved === 'ai-unbeatable') {
+    if (
+      saved === 'pvp' ||
+      saved === 'ai-casual' ||
+      saved === 'ai-tactician' ||
+      saved === 'ai-adaptive'
+    ) {
       return saved;
     }
   } catch {
     // Ignore error
   }
-  return 'pvp';
+  return 'ai-casual';
 }
 
 export function useTicTacToe() {
@@ -59,6 +66,7 @@ export function useTicTacToe() {
   const [history, setHistory] = useState<HistoryStep[]>([]);
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [isMuted, setIsMuted] = useState(sound.isMuted);
+  const [qGeneration, setQGeneration] = useState<number>(() => qLearningAgent.gamesLearned);
 
   const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -94,19 +102,28 @@ export function useTicTacToe() {
     setIsMuted(nextMuted);
   }, []);
 
-  // Handle game end sound & score update
-  const handleGameEnd = useCallback((winningPlayer: Winner) => {
-    if (winningPlayer === 'X') {
-      sound.playWin();
-      setScores((prev) => ({ ...prev, x: prev.x + 1 }));
-    } else if (winningPlayer === 'O') {
-      sound.playWin();
-      setScores((prev) => ({ ...prev, o: prev.o + 1 }));
-    } else if (winningPlayer === 'Draw') {
-      sound.playDraw();
-      setScores((prev) => ({ ...prev, ties: prev.ties + 1 }));
-    }
-  }, []);
+  // Handle game end sound, reinforcement update & score update
+  const handleGameEnd = useCallback(
+    (winningPlayer: Winner) => {
+      if (winningPlayer === 'X') {
+        sound.playWin();
+        setScores((prev) => ({ ...prev, x: prev.x + 1 }));
+      } else if (winningPlayer === 'O') {
+        sound.playWin();
+        setScores((prev) => ({ ...prev, o: prev.o + 1 }));
+      } else if (winningPlayer === 'Draw') {
+        sound.playDraw();
+        setScores((prev) => ({ ...prev, ties: prev.ties + 1 }));
+      }
+
+      // Reinforce Q-Learning Agent if in adaptive mode
+      if (gameMode === 'ai-adaptive') {
+        const nextGen = qLearningAgent.finalizeGame(winningPlayer, 'O');
+        setQGeneration(nextGen);
+      }
+    },
+    [gameMode]
+  );
 
   // AI Move Execution
   useEffect(() => {
@@ -119,10 +136,12 @@ export function useTicTacToe() {
 
     aiTimerRef.current = setTimeout(() => {
       let move: number | null = null;
-      if (gameMode === 'ai-easy') {
-        move = getRandomMove(board);
-      } else if (gameMode === 'ai-unbeatable') {
-        move = getBestMove(board, 'O');
+      if (gameMode === 'ai-casual') {
+        move = getClubPlayerMove(board, 'O');
+      } else if (gameMode === 'ai-tactician') {
+        move = getTacticianMove(board, 'O');
+      } else if (gameMode === 'ai-adaptive') {
+        move = getAdaptiveBotMove(board, 'O');
       }
 
       if (move !== null && board[move] === null) {
@@ -169,7 +188,7 @@ export function useTicTacToe() {
         return;
       }
 
-      // In AI mode, player only plays as 'X'
+      // In AI mode, player plays as 'X'
       if (gameMode !== 'pvp' && turn !== 'X') {
         return;
       }
@@ -211,6 +230,10 @@ export function useTicTacToe() {
 
     sound.playClick();
 
+    if (gameMode === 'ai-adaptive') {
+      qLearningAgent.resetCurrentEpisode();
+    }
+
     // If game ended, undo score change
     if (winner !== null) {
       setScores((prev) => {
@@ -222,7 +245,6 @@ export function useTicTacToe() {
     }
 
     if (gameMode === 'pvp') {
-      // Undo single move in PvP
       const prevStep = history[history.length - 1];
       setBoard(prevStep.board);
       setTurn(prevStep.turn);
@@ -230,9 +252,6 @@ export function useTicTacToe() {
       setWinningLine(prevStep.winningLine);
       setHistory((prev) => prev.slice(0, -1));
     } else {
-      // In AI mode:
-      // If the game ended on Player X's move, we only need to undo 1 move (Player X's move)
-      // Otherwise (AI made move O or game ended on AI's move), we undo both AI and player's move (2 steps)
       const stepsToUndo = winner === 'X' ? 1 : Math.min(2, history.length);
       const targetIndex = history.length - stepsToUndo;
 
@@ -244,7 +263,6 @@ export function useTicTacToe() {
         setWinningLine(null);
         setHistory((prev) => prev.slice(0, targetIndex));
       } else {
-        // Revert to initial empty board
         setBoard(INITIAL_BOARD);
         setTurn('X');
         setWinner(null);
@@ -260,13 +278,16 @@ export function useTicTacToe() {
       clearTimeout(aiTimerRef.current);
     }
     sound.playClick();
+    if (gameMode === 'ai-adaptive') {
+      qLearningAgent.resetCurrentEpisode();
+    }
     setBoard(INITIAL_BOARD);
     setTurn('X');
     setWinner(null);
     setWinningLine(null);
     setHistory([]);
     setIsAiThinking(false);
-  }, []);
+  }, [gameMode]);
 
   // Reset all scores
   const handleResetScores = useCallback(() => {
@@ -280,6 +301,9 @@ export function useTicTacToe() {
       clearTimeout(aiTimerRef.current);
     }
     sound.playClick();
+    if (newMode === 'ai-adaptive') {
+      qLearningAgent.resetCurrentEpisode();
+    }
     setGameMode(newMode);
     setBoard(INITIAL_BOARD);
     setTurn('X');
@@ -287,6 +311,13 @@ export function useTicTacToe() {
     setWinningLine(null);
     setHistory([]);
     setIsAiThinking(false);
+  }, []);
+
+  // Wipe Q-learning agent memory
+  const handleResetQMemory = useCallback(() => {
+    sound.playClick();
+    qLearningAgent.resetMemory();
+    setQGeneration(0);
   }, []);
 
   return {
@@ -299,6 +330,7 @@ export function useTicTacToe() {
     history,
     isAiThinking,
     isMuted,
+    qGeneration,
     canUndo: history.length > 0 && !isAiThinking,
     handleSquareClick,
     handleUndo,
@@ -306,5 +338,6 @@ export function useTicTacToe() {
     handleResetScores,
     handleSelectMode,
     handleToggleMute,
+    handleResetQMemory,
   };
 }

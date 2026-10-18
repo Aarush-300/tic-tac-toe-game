@@ -37,6 +37,7 @@ class SoundEffects {
     return this.ctx;
   }
 
+  // Tactile woodblock/mechanical switch tap
   playMove(player: Player) {
     if (this.isMuted) return;
     try {
@@ -47,24 +48,52 @@ class SoundEffects {
       osc.connect(gain);
       gain.connect(ctx.destination);
 
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(player === 'X' ? 520 : 380, ctx.currentTime);
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+      osc.type = 'triangle';
+      const baseFreq = player === 'X' ? 320 : 240;
+      osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.5, ctx.currentTime + 0.06);
+
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
       osc.start();
-      osc.stop(ctx.currentTime + 0.1);
+      osc.stop(ctx.currentTime + 0.06);
     } catch {
-      // Safely ignore if audio cannot play yet
+      // Safely ignore
     }
   }
 
+  // Gentle acoustic chime chord
   playWin() {
     if (this.isMuted) return;
     try {
       const ctx = this.getContext();
       if (!ctx) return;
-      const notes = [440, 554, 659, 880];
+      const notes = [330, 415, 495, 660];
       notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        const startTime = ctx.currentTime + idx * 0.07;
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0.12, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.22);
+        osc.start(startTime);
+        osc.stop(startTime + 0.22);
+      });
+    } catch {
+      // Safely ignore
+    }
+  }
+
+  // Soft double tap
+  playDraw() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      [220, 180].forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
@@ -72,40 +101,17 @@ class SoundEffects {
         osc.type = 'triangle';
         const startTime = ctx.currentTime + idx * 0.08;
         osc.frequency.setValueAtTime(freq, startTime);
-        gain.gain.setValueAtTime(0.15, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.2);
-        osc.start(startTime);
-        osc.stop(startTime + 0.2);
-      });
-    } catch {
-      // Safely ignore
-    }
-  }
-
-  playDraw() {
-    if (this.isMuted) return;
-    try {
-      const ctx = this.getContext();
-      if (!ctx) return;
-      const notes = [320, 280, 240];
-      notes.forEach((freq, idx) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sine';
-        const startTime = ctx.currentTime + idx * 0.1;
-        osc.frequency.setValueAtTime(freq, startTime);
         gain.gain.setValueAtTime(0.1, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.12);
         osc.start(startTime);
-        osc.stop(startTime + 0.15);
+        osc.stop(startTime + 0.12);
       });
     } catch {
       // Safely ignore
     }
   }
 
+  // Subtle paper/key click
   playClick() {
     if (this.isMuted) return;
     try {
@@ -116,11 +122,11 @@ class SoundEffects {
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(260, ctx.currentTime);
-      gain.gain.setValueAtTime(0.08, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+      osc.frequency.setValueAtTime(180, ctx.currentTime);
+      gain.gain.setValueAtTime(0.07, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
       osc.start();
-      osc.stop(ctx.currentTime + 0.05);
+      osc.stop(ctx.currentTime + 0.04);
     } catch {
       // Safely ignore
     }

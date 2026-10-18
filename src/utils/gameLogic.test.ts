@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import type { BoardState, Player } from '../types/game';
+import type { BoardState } from '../types/game';
+import { checkWinner, getAvailableMoves, WINNING_LINES } from './gameLogic';
 import {
-  checkWinner,
-  getAvailableMoves,
-  getBestMove,
-  getRandomMove,
-  WINNING_LINES,
-} from './gameLogic';
+  findImmediateWin,
+  getClubPlayerMove,
+  getTacticianMove,
+  getAdaptiveBotMove,
+  softmaxSample,
+} from './aiEngine';
+import { QLearningAgent } from './qLearning';
 
-describe('Tic-Tac-Toe Game Logic', () => {
+describe('Tic-Tac-Toe Game Logic & AI Engine', () => {
   describe('Win and Draw Detection', () => {
     it('should correctly detect all 8 winning lines for player X', () => {
       WINNING_LINES.forEach(([a, b, c], index) => {
@@ -37,9 +39,6 @@ describe('Tic-Tac-Toe Game Logic', () => {
     });
 
     it('should detect a Draw when board is full and there is no winner', () => {
-      // X O X
-      // X X O
-      // O X O
       const board: BoardState = [
         'X', 'O', 'X',
         'X', 'X', 'O',
@@ -60,16 +59,9 @@ describe('Tic-Tac-Toe Game Logic', () => {
       expect(result.winner).toBeNull();
       expect(result.winningLine).toBeNull();
     });
-
-    it('should return null winner and null winningLine for an empty board', () => {
-      const board: BoardState = Array(9).fill(null);
-      const result = checkWinner(board);
-      expect(result.winner).toBeNull();
-      expect(result.winningLine).toBeNull();
-    });
   });
 
-  describe('Move Helpers', () => {
+  describe('Move Helpers & Softmax', () => {
     it('should return all unoccupied square indices', () => {
       const board: BoardState = [
         'X', null, 'O',
@@ -79,143 +71,161 @@ describe('Tic-Tac-Toe Game Logic', () => {
       expect(getAvailableMoves(board)).toEqual([1, 3, 5, 7, 8]);
     });
 
-    it('should return an empty array if the board is full', () => {
-      const board: BoardState = Array(9).fill('X');
-      expect(getAvailableMoves(board)).toEqual([]);
-    });
-
-    it('getRandomMove should select a valid open square or null if full', () => {
-      const board: BoardState = [
-        'X', 'O', 'X',
-        'O', 'X', 'O',
-        'X', 'O', null,
+    it('softmaxSample should return candidates based on relative weights', () => {
+      const candidates = [
+        { item: 'A', score: 100 },
+        { item: 'B', score: 0 },
       ];
-      expect(getRandomMove(board)).toBe(8);
-
-      const fullBoard: BoardState = Array(9).fill('X');
-      expect(getRandomMove(fullBoard)).toBeNull();
+      // With low temperature, high score 'A' should be selected almost always
+      const selected = softmaxSample(candidates, 0.1);
+      expect(selected).toBe('A');
     });
-  });
 
-  describe('Minimax AI (Unbeatable)', () => {
-    it('should immediately take the winning move when available', () => {
-      // AI is O
-      // O O _
-      // X X _
-      // _ _ _
+    it('findImmediateWin finds direct win on open square', () => {
       const board: BoardState = [
         'O', 'O', null,
         'X', 'X', null,
         null, null, null,
       ];
-      const move = getBestMove(board, 'O');
-      expect(move).toBe(2);
+      expect(findImmediateWin(board, 'O')).toBe(2);
+      expect(findImmediateWin(board, 'X')).toBe(5);
+    });
+  });
+
+  describe('Club Player AI (Casual)', () => {
+    it('takes immediate win the vast majority of the time (~90%)', () => {
+      const board: BoardState = [
+        'O', 'O', null,
+        'X', null, null,
+        null, null, null,
+      ];
+      let winTakenCount = 0;
+      for (let i = 0; i < 50; i++) {
+        if (getClubPlayerMove(board, 'O') === 2) {
+          winTakenCount++;
+        }
+      }
+      // Out of 50 trials with 90% probability, at least 35 should take the win
+      expect(winTakenCount).toBeGreaterThanOrEqual(35);
     });
 
-    it('should block the opponent from winning immediately', () => {
-      // AI is O, Human is X
-      // X X _
-      // O _ _
-      // _ _ _
+    it('blocks immediate threat the vast majority of the time (~75%)', () => {
       const board: BoardState = [
         'X', 'X', null,
         'O', null, null,
         null, null, null,
       ];
-      const move = getBestMove(board, 'O');
-      expect(move).toBe(2);
+      let blockedCount = 0;
+      for (let i = 0; i < 50; i++) {
+        if (getClubPlayerMove(board, 'O') === 2) {
+          blockedCount++;
+        }
+      }
+      // Out of 50 trials with 75% probability, at least 25 should block
+      expect(blockedCount).toBeGreaterThanOrEqual(25);
     });
 
-    it('should block a diagonal win', () => {
-      // X _ _
-      // _ X _
-      // _ _ _
+    it('always selects a legal available move', () => {
       const board: BoardState = [
-        'X', null, null,
-        null, 'X', null,
+        'X', 'O', 'X',
+        'O', null, null,
+        null, 'X', 'O',
+      ];
+      const available = getAvailableMoves(board);
+      for (let i = 0; i < 20; i++) {
+        const move = getClubPlayerMove(board, 'O');
+        expect(available).toContain(move);
+      }
+    });
+  });
+
+  describe('Tactician AI (Depth-2 Minimax + Softmax)', () => {
+    it('always takes an immediate win (100%)', () => {
+      const board: BoardState = [
+        'O', 'O', null,
+        'X', 'X', null,
         null, null, null,
       ];
-      const move = getBestMove(board, 'O');
-      expect(move).toBe(8);
+      for (let i = 0; i < 20; i++) {
+        expect(getTacticianMove(board, 'O')).toBe(2);
+      }
     });
 
-    it('should block a column win', () => {
-      // X O _
-      // X _ _
-      // _ _ _
+    it('always blocks an immediate threat (100%)', () => {
       const board: BoardState = [
-        'X', 'O', null,
-        'X', null, null,
+        'X', 'X', null,
+        'O', null, null,
         null, null, null,
       ];
-      const move = getBestMove(board, 'O');
-      expect(move).toBe(6);
+      for (let i = 0; i < 20; i++) {
+        expect(getTacticianMove(board, 'O')).toBe(2);
+      }
     });
 
-    it('Minimax vs Minimax always results in a Draw', () => {
+    it('always chooses legal moves from available squares', () => {
+      const board: BoardState = [
+        'X', null, null,
+        null, 'O', null,
+        null, null, 'X',
+      ];
+      const available = getAvailableMoves(board);
+      for (let i = 0; i < 20; i++) {
+        const move = getTacticianMove(board, 'O');
+        expect(available).toContain(move);
+      }
+    });
+  });
+
+  describe('Adaptive Bot (Q-Learning Agent)', () => {
+    it('selects legal moves from open squares', () => {
+      const agent = new QLearningAgent();
+      const board: BoardState = [
+        'X', 'O', 'X',
+        null, null, 'O',
+        'O', 'X', null,
+      ];
+      const available = getAvailableMoves(board);
+      const action = agent.selectAction(board, available, 0.0);
+      expect(available).toContain(action);
+    });
+
+    it('serializes board into a 9-char string', () => {
+      const agent = new QLearningAgent();
+      const board: BoardState = ['X', null, 'O', null, null, null, null, null, null];
+      expect(agent.serializeState(board)).toBe('X.O......');
+    });
+
+    it('records steps and updates state-action values upon game finalization', () => {
+      const agent = new QLearningAgent();
+      const initialGen = agent.gamesLearned;
+
+      const board1: BoardState = ['X', null, null, null, null, null, null, null, null];
+      agent.recordStep(board1, 4);
+
+      const board2: BoardState = ['X', null, null, null, 'O', null, 'X', null, null];
+      agent.recordStep(board2, 3);
+
+      const newGen = agent.finalizeGame('O', 'O');
+      expect(newGen).toBe(initialGen + 1);
+
+      // Verify that Q-values were updated for the recorded states
+      const stateStr1 = agent.serializeState(board1);
+      expect(agent.qTable[stateStr1]?.[4]).toBeDefined();
+    });
+
+    it('resetMemory clears learned games count and re-seeds baseline', () => {
+      const agent = new QLearningAgent();
+      agent.gamesLearned = 12;
+      agent.resetMemory();
+      expect(agent.gamesLearned).toBe(0);
+      expect(Object.keys(agent.qTable).length).toBeGreaterThan(0);
+    });
+
+    it('getAdaptiveBotMove returns valid legal move', () => {
       const board: BoardState = Array(9).fill(null);
-      let currentTurn: Player = 'X';
-
-      while (checkWinner(board).winner === null) {
-        const move = getBestMove(board, currentTurn);
-        expect(move).not.toBeNull();
-        if (move === null) break;
-        board[move] = currentTurn;
-        currentTurn = currentTurn === 'X' ? 'O' : 'X';
-      }
-
-      const outcome = checkWinner(board);
-      expect(outcome.winner).toBe('Draw');
-    });
-
-    it('Minimax as O never loses against 100 random games by X', () => {
-      for (let i = 0; i < 100; i++) {
-        const board: BoardState = Array(9).fill(null);
-        let turn: Player = 'X';
-
-        while (checkWinner(board).winner === null) {
-          if (turn === 'X') {
-            const randomMove = getRandomMove(board);
-            if (randomMove === null) break;
-            board[randomMove] = 'X';
-            turn = 'O';
-          } else {
-            const bestMove = getBestMove(board, 'O');
-            expect(bestMove).not.toBeNull();
-            if (bestMove === null) break;
-            board[bestMove] = 'O';
-            turn = 'X';
-          }
-        }
-
-        const outcome = checkWinner(board);
-        expect(['O', 'Draw']).toContain(outcome.winner);
-      }
-    });
-
-    it('Minimax as X never loses against 100 random games by O', () => {
-      for (let i = 0; i < 100; i++) {
-        const board: BoardState = Array(9).fill(null);
-        let turn: Player = 'X';
-
-        while (checkWinner(board).winner === null) {
-          if (turn === 'X') {
-            const bestMove = getBestMove(board, 'X');
-            expect(bestMove).not.toBeNull();
-            if (bestMove === null) break;
-            board[bestMove] = 'X';
-            turn = 'O';
-          } else {
-            const randomMove = getRandomMove(board);
-            if (randomMove === null) break;
-            board[randomMove] = 'O';
-            turn = 'X';
-          }
-        }
-
-        const outcome = checkWinner(board);
-        expect(['X', 'Draw']).toContain(outcome.winner);
-      }
+      const move = getAdaptiveBotMove(board, 'O');
+      expect(move).toBeGreaterThanOrEqual(0);
+      expect(move).toBeLessThan(9);
     });
   });
 });

@@ -18,6 +18,7 @@ export default function App() {
     scores,
     isAiThinking,
     isMuted,
+    qGeneration,
     canUndo,
     handleSquareClick,
     handleUndo,
@@ -25,12 +26,12 @@ export default function App() {
     handleResetScores,
     handleSelectMode,
     handleToggleMute,
+    handleResetQMemory,
   } = useTicTacToe();
 
   // Global hotkeys (U = undo, N = new round, R = reset scores)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in an input
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -54,13 +55,15 @@ export default function App() {
   }, [canUndo, handleUndo, handleNewRound, handleResetScores]);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-black text-slate-100 flex flex-col justify-between items-center px-4 py-6 sm:py-8 selection:bg-cyan-500/30 selection:text-cyan-200">
+    <main className="min-h-screen flex flex-col justify-between items-center px-4 py-6 sm:py-8">
       <div className="w-full max-w-md mx-auto flex flex-col items-center">
         <Header isMuted={isMuted} onToggleMute={handleToggleMute} />
 
         <GameModeSelector
           currentMode={gameMode}
           onSelectMode={handleSelectMode}
+          qGeneration={qGeneration}
+          onResetQMemory={handleResetQMemory}
           disabled={isAiThinking}
         />
 

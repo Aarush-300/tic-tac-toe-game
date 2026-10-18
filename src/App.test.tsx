@@ -10,10 +10,11 @@ describe('App Component and User Interaction', () => {
   it('renders the game header, mode selector, and scoreboard', () => {
     render(<App />);
     expect(screen.getByText('TIC-TAC-TOE')).toBeDefined();
-    expect(screen.getByText('PvP')).toBeDefined();
-    expect(screen.getByText('AI (Easy)')).toBeDefined();
-    expect(screen.getByText('AI (Master)')).toBeDefined();
-    expect(screen.getByText('TIES')).toBeDefined();
+    expect(screen.getByText('Local PvP')).toBeDefined();
+    expect(screen.getByText('Club Player')).toBeDefined();
+    expect(screen.getByText('Tactician')).toBeDefined();
+    expect(screen.getByText('Adaptive Bot')).toBeDefined();
+    expect(screen.getByText('DRAWS')).toBeDefined();
   });
 
   it('renders 9 board cells as accessible buttons with proper aria-labels', () => {
@@ -44,6 +45,10 @@ describe('App Component and User Interaction', () => {
 
   it('allows undoing a move in PvP mode', () => {
     render(<App />);
+    // Select Local PvP
+    const pvpTab = screen.getByRole('tab', { name: /Local PvP/i });
+    fireEvent.click(pvpTab);
+
     const buttons = screen.getAllByRole('gridcell');
     fireEvent.click(buttons[0]);
     expect(buttons[0].getAttribute('aria-label')).toBe('Row 1, Column 1, marked X');
@@ -51,5 +56,14 @@ describe('App Component and User Interaction', () => {
     const undoButton = screen.getByRole('button', { name: /undo move/i });
     fireEvent.click(undoButton);
     expect(buttons[0].getAttribute('aria-label')).toBe('Row 1, Column 1, empty');
+  });
+
+  it('displays generation badge when Adaptive Bot mode is selected', () => {
+    render(<App />);
+    const adaptiveTab = screen.getByRole('tab', { name: /Adaptive Bot/i });
+    fireEvent.click(adaptiveTab);
+
+    expect(screen.getByText(/Learned from you:/i)).toBeDefined();
+    expect(screen.getByText(/Wipe Memory/i)).toBeDefined();
   });
 });

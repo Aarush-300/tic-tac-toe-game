@@ -20,72 +20,70 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({
   const oLabel =
     gameMode === 'pvp'
       ? 'PLAYER O'
-      : gameMode === 'ai-easy'
-      ? 'AI (EASY)'
-      : 'AI (MASTER)';
+      : gameMode === 'ai-casual'
+      ? 'CLUB AI'
+      : gameMode === 'ai-tactician'
+      ? 'TACTICIAN'
+      : 'ADAPTIVE';
 
   return (
     <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full mb-4">
       {/* Player X Card */}
       <div
-        className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl border transition-all duration-300 relative overflow-hidden ${
+        className={`flex flex-col items-center justify-center p-2.5 sm:p-3 border-2 border-ink transition-all duration-100 ${
           isXTurn
-            ? 'bg-slate-900 border-cyan-500/80 shadow-[0_0_15px_rgba(6,182,212,0.25)] ring-1 ring-cyan-500/40'
-            : 'bg-slate-900/60 border-slate-800 text-slate-400'
+            ? 'bg-terracotta-light shadow-brutal translate-x-[-1px] translate-y-[-1px]'
+            : 'bg-paper-surface shadow-brutal-sm'
         }`}
       >
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block shadow-[0_0_6px_#22d3ee]" />
-          <span className="text-[11px] font-bold tracking-wider text-cyan-400">
+          <span className="w-2.5 h-2.5 bg-terracotta inline-block border border-ink" />
+          <span className="text-[11px] font-mono font-bold tracking-wider text-ink">
             {gameMode === 'pvp' ? 'PLAYER X' : 'YOU (X)'}
           </span>
         </div>
-        <span className="text-xl sm:text-2xl font-black text-white tracking-tight">
+        <span className="text-2xl sm:text-3xl font-mono font-bold text-ink">
           {scores.x}
         </span>
-        {isXTurn && (
-          <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-300 mt-0.5 animate-pulse">
-            Thinking...
-          </span>
-        )}
+        <span className="text-[10px] font-mono text-ink-muted mt-0.5">
+          {isXTurn ? '[TURN]' : 'WINS'}
+        </span>
       </div>
 
-      {/* Ties Card */}
-      <div className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-400">
+      {/* Draws / Ties Card */}
+      <div className="flex flex-col items-center justify-center p-2.5 sm:p-3 border-2 border-ink bg-paper-surface shadow-brutal-sm">
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />
-          <span className="text-[11px] font-bold tracking-wider text-slate-400">
-            TIES
+          <span className="w-2.5 h-2.5 bg-ink-muted inline-block border border-ink" />
+          <span className="text-[11px] font-mono font-bold tracking-wider text-ink">
+            DRAWS
           </span>
         </div>
-        <span className="text-xl sm:text-2xl font-black text-slate-200 tracking-tight">
+        <span className="text-2xl sm:text-3xl font-mono font-bold text-ink">
           {scores.ties}
         </span>
-        <span className="text-[10px] text-slate-500 mt-0.5">DRAWS</span>
+        <span className="text-[10px] font-mono text-ink-muted mt-0.5">TIED</span>
       </div>
 
       {/* Player O Card */}
       <div
-        className={`flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-xl border transition-all duration-300 relative overflow-hidden ${
+        className={`flex flex-col items-center justify-center p-2.5 sm:p-3 border-2 border-ink transition-all duration-100 ${
           isOTurn
-            ? 'bg-slate-900 border-rose-500/80 shadow-[0_0_15px_rgba(244,63,94,0.25)] ring-1 ring-rose-500/40'
-            : 'bg-slate-900/60 border-slate-800 text-slate-400'
+            ? 'bg-cobalt-light shadow-brutal translate-x-[-1px] translate-y-[-1px]'
+            : 'bg-paper-surface shadow-brutal-sm'
         }`}
       >
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="w-2 h-2 rounded-full bg-rose-400 inline-block shadow-[0_0_6px_#fb7185]" />
-          <span className="text-[11px] font-bold tracking-wider text-rose-400">
+          <span className="w-2.5 h-2.5 bg-cobalt inline-block border border-ink" />
+          <span className="text-[11px] font-mono font-bold tracking-wider text-ink">
             {oLabel}
           </span>
         </div>
-        <span className="text-xl sm:text-2xl font-black text-white tracking-tight">
+        <span className="text-2xl sm:text-3xl font-mono font-bold text-ink">
           {scores.o}
         </span>
-        {isOTurn && (
-          <span className="text-[10px] uppercase font-bold tracking-wider text-rose-300 mt-0.5 animate-pulse">
-            Thinking...
-          </span>
-        )}
+        <span className="text-[10px] font-mono text-ink-muted mt-0.5">
+          {isOTurn ? '[TURN]' : 'WINS'}
+        </span>
       </div>
     </div>
   );

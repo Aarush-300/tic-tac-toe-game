@@ -2,7 +2,7 @@ export type Player = 'X' | 'O';
 export type SquareValue = Player | null;
 export type BoardState = SquareValue[];
 
-export type GameMode = 'pvp' | 'ai-easy' | 'ai-unbeatable';
+export type GameMode = 'pvp' | 'ai-casual' | 'ai-tactician' | 'ai-adaptive';
 export type Winner = Player | 'Draw' | null;
 export type WinningLine = [number, number, number] | null;
 

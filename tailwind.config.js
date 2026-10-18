@@ -4,45 +4,54 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: 'class',
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+      },
       colors: {
-        neon: {
-          cyan: '#06b6d4',
-          cyanGlow: '#22d3ee',
-          pink: '#f43f5e',
-          pinkGlow: '#fb7185',
-          amber: '#f59e0b',
-          emerald: '#10b981',
-          purple: '#8b5cf6',
-        }
+        paper: {
+          DEFAULT: '#F4F1EA',
+          surface: '#FFFFFF',
+          muted: '#EAE5D9',
+          border: '#18181B',
+        },
+        ink: {
+          DEFAULT: '#18181B',
+          light: '#3F3F46',
+          muted: '#71717A',
+        },
+        terracotta: {
+          DEFAULT: '#E04F33',
+          hover: '#C83E24',
+          light: '#FDF2F0',
+        },
+        cobalt: {
+          DEFAULT: '#2563EB',
+          hover: '#1D4ED8',
+          light: '#EFF6FF',
+        },
+      },
+      boxShadow: {
+        'brutal': '4px 4px 0px 0px #18181B',
+        'brutal-sm': '2px 2px 0px 0px #18181B',
+        'brutal-lg': '6px 6px 0px 0px #18181B',
       },
       animation: {
-        'pulse-glow': 'pulse-glow 1.5s ease-in-out infinite',
-        'fade-in': 'fadeIn 0.3s ease-out forwards',
-        'pop': 'pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+        'draw-stroke': 'drawStroke 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'stamp': 'stamp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
       },
       keyframes: {
-        'pulse-glow': {
-          '0%, 100%': {
-            transform: 'scale(1)',
-            boxShadow: '0 0 15px rgba(16, 185, 129, 0.6), inset 0 0 15px rgba(16, 185, 129, 0.3)',
-          },
-          '50%': {
-            transform: 'scale(1.03)',
-            boxShadow: '0 0 30px rgba(16, 185, 129, 0.9), inset 0 0 25px rgba(16, 185, 129, 0.5)',
-          },
+        drawStroke: {
+          '0%': { strokeDashoffset: '100' },
+          '100%': { strokeDashoffset: '0' },
         },
-        fadeIn: {
-          '0%': { opacity: '0', transform: 'translateY(-6px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        pop: {
-          '0%': { transform: 'scale(0.5)', opacity: '0' },
+        stamp: {
+          '0%': { transform: 'scale(0.85)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
-        }
-      }
+        },
+      },
     },
   },
   plugins: [],

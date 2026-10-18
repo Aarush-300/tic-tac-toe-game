@@ -42,36 +42,73 @@ export const Square: React.FC<SquareProps> = ({
       disabled={isDisabled}
       onClick={onClick}
       onKeyDown={onKeyDown}
-      className={`relative aspect-square w-full rounded-2xl flex items-center justify-center font-black transition-all duration-200 select-none outline-none group focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
+      className={`relative aspect-square w-full border-2 border-ink flex items-center justify-center select-none outline-none transition-all duration-100 ease-out focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 ${
         isWinningSquare
-          ? 'bg-emerald-950/80 border-2 border-emerald-400 animate-pulse-glow z-10'
+          ? 'bg-[#FEF08A] border-ink shadow-brutal translate-x-[-1px] translate-y-[-1px] z-10'
           : value
-          ? 'bg-slate-900/90 border border-slate-800 shadow-md'
-          : 'bg-slate-900/40 hover:bg-slate-850/80 border border-slate-800/80 hover:border-slate-700 active:scale-95 cursor-pointer shadow-inner'
-      } ${isDisabled && !value ? 'cursor-not-allowed opacity-75' : ''}`}
+          ? 'bg-paper-surface shadow-brutal-sm'
+          : 'bg-paper-surface hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-brutal active:translate-x-[2px] active:translate-y-[2px] active:shadow-none shadow-brutal-sm cursor-pointer'
+      } ${isDisabled && !value ? 'cursor-not-allowed opacity-60' : ''}`}
     >
-      {/* Existing Mark */}
+      {/* Hand-drawn SVG animated stroke for X */}
       {value === 'X' && (
-        <span className="text-4xl sm:text-5xl md:text-6xl font-black text-cyan-400 glow-cyan animate-pop">
-          ✕
-        </span>
+        <svg
+          viewBox="0 0 48 48"
+          className="w-10 h-10 sm:w-14 sm:h-14"
+          aria-hidden="true"
+        >
+          <line
+            x1="11"
+            y1="11"
+            x2="37"
+            y2="37"
+            stroke="#E04F33"
+            strokeWidth="5"
+            strokeLinecap="round"
+            className="draw-line-1"
+          />
+          <line
+            x1="37"
+            y1="11"
+            x2="11"
+            y2="37"
+            stroke="#E04F33"
+            strokeWidth="5"
+            strokeLinecap="round"
+            className="draw-line-2"
+          />
+        </svg>
       )}
 
+      {/* Hand-drawn SVG animated stroke for O */}
       {value === 'O' && (
-        <span className="text-4xl sm:text-5xl md:text-6xl font-black text-rose-500 glow-pink animate-pop">
-          ◯
-        </span>
+        <svg
+          viewBox="0 0 48 48"
+          className="w-10 h-10 sm:w-14 sm:h-14"
+          aria-hidden="true"
+        >
+          <circle
+            cx="24"
+            cy="24"
+            r="13"
+            stroke="#2563EB"
+            strokeWidth="5"
+            fill="none"
+            strokeLinecap="round"
+            className="draw-circle"
+          />
+        </svg>
       )}
 
-      {/* Ghost Preview on hover for empty squares */}
+      {/* Subtle preview on hover for empty available cells */}
       {!value && !isDisabled && (
         <span
           aria-hidden="true"
-          className={`text-3xl sm:text-4xl font-black opacity-0 group-hover:opacity-20 transition-opacity duration-150 ${
-            currentTurn === 'X' ? 'text-cyan-400' : 'text-rose-400'
+          className={`font-mono text-xl sm:text-2xl font-bold opacity-0 hover:opacity-25 transition-opacity pointer-events-none select-none ${
+            currentTurn === 'X' ? 'text-terracotta' : 'text-cobalt'
           }`}
         >
-          {currentTurn === 'X' ? '✕' : '◯'}
+          {currentTurn}
         </span>
       )}
     </button>

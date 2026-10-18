@@ -62,9 +62,9 @@ export const Board: React.FC<BoardProps> = ({
     <div
       role="grid"
       aria-label="Tic Tac Toe Board"
-      className="w-full max-w-[360px] sm:max-w-[400px] aspect-square mx-auto p-3 sm:p-4 rounded-3xl bg-slate-900/80 border border-slate-800 shadow-2xl backdrop-blur-md mb-4 flex items-center justify-center relative"
+      className="w-full max-w-[340px] sm:max-w-[380px] aspect-square mx-auto p-3 sm:p-4 border-2 border-ink bg-paper-muted shadow-brutal mb-4 flex items-center justify-center relative"
     >
-      <div className="grid grid-cols-3 grid-rows-3 gap-2.5 sm:gap-3.5 w-full h-full">
+      <div className="grid grid-cols-3 grid-rows-3 gap-2.5 sm:gap-3 w-full h-full">
         {board.map((value, index) => {
           const isWinning = winningLine !== null && winningLine.includes(index);
           return (
