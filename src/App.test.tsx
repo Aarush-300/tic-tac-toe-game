@@ -64,6 +64,7 @@ describe('App Component and User Interaction', () => {
     fireEvent.click(adaptiveTab);
 
     expect(screen.getByText(/Learned from you:/i)).toBeDefined();
+    expect(screen.getByText(/Confidence:/i)).toBeDefined();
     expect(screen.getByText(/Wipe Memory/i)).toBeDefined();
   });
 });

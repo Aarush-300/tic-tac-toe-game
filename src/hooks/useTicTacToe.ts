@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BoardState, GameMode, Player, ScoreState, Winner, WinningLine } from '../types/game';
 import { checkWinner, getAvailableMoves } from '../utils/gameLogic';
 import { getClubPlayerMove, getTacticianMove, getAdaptiveBotMove } from '../utils/aiEngine';
@@ -102,6 +102,19 @@ export function useTicTacToe() {
     setIsMuted(nextMuted);
   }, []);
 
+  // Real-time confidence telemetry for the adaptive agent
+  const qConfidence = useMemo(() => {
+    const { qValue, winProb } = qLearningAgent.getConfidence(board, 'O');
+    const scoreStr = (qValue >= 0 ? '+' : '') + qValue.toFixed(2);
+    return {
+      qValue,
+      winProb,
+      scoreStr,
+      winProbStr: `${winProb}%`,
+      display: `Confidence: ${scoreStr} (${winProb}% Win Prob)`,
+    };
+  }, [board]);
+
   // Handle game end sound, reinforcement update & score update
   const handleGameEnd = useCallback(
     (winningPlayer: Winner) => {
@@ -191,6 +204,11 @@ export function useTicTacToe() {
       // In AI mode, player plays as 'X'
       if (gameMode !== 'pvp' && turn !== 'X') {
         return;
+      }
+
+      // Record human step for Q-learning counterfactual replay
+      if (gameMode === 'ai-adaptive') {
+        qLearningAgent.recordHumanStep(board, index, 'X');
       }
 
       // Record current state in history before moving
@@ -331,6 +349,7 @@ export function useTicTacToe() {
     isAiThinking,
     isMuted,
     qGeneration,
+    qConfidence,
     canUndo: history.length > 0 && !isAiThinking,
     handleSquareClick,
     handleUndo,

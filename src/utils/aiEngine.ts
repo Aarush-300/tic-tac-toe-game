@@ -214,15 +214,37 @@ export function getTacticianMove(board: BoardState, aiPlayer: Player = 'O'): num
 }
 
 /**
- * ADAPTIVE BOT (Tabular Q-Learning Agent)
- * - Selects move from in-browser Q-table with light exploration.
+ * ADAPTIVE BOT (Tabular Q-Learning Agent with 1-Ply Reflex Filter)
+ * - 1-Ply Tactical Reflex: Takes immediate wins 100% of the time.
+ * - Blocks immediate human threats 90% of the time (if experienced >= 3 games or pre-warmed).
+ * - Consults the canonical Q-table (epsilon = 0.0) for strategic evaluations and forks.
  * - Records state transition for end-of-game reinforcement learning.
  */
-export function getAdaptiveBotMove(board: BoardState, _aiPlayer: Player = 'O'): number | null {
+export function getAdaptiveBotMove(board: BoardState, aiPlayer: Player = 'O'): number | null {
   const availableMoves = getAvailableMoves(board);
   if (availableMoves.length === 0) return null;
 
-  const chosenMove = qLearningAgent.selectAction(board, availableMoves, 0.04);
-  qLearningAgent.recordStep(board, chosenMove);
+  const humanPlayer: Player = aiPlayer === 'X' ? 'O' : 'X';
+
+  // 1. Immediate 1-Move Win Check (100% execution)
+  const immediateWin = findImmediateWin(board, aiPlayer);
+  if (immediateWin !== null) {
+    qLearningAgent.recordBotStep(board, immediateWin, aiPlayer);
+    return immediateWin;
+  }
+
+  // 2. Immediate 1-Move Threat Block Check
+  const immediateThreat = findImmediateWin(board, humanPlayer);
+  if (immediateThreat !== null) {
+    const isExperienced = qLearningAgent.isPrewarmed || qLearningAgent.gamesLearned >= 3;
+    if (isExperienced && Math.random() < 0.9) {
+      qLearningAgent.recordBotStep(board, immediateThreat, aiPlayer);
+      return immediateThreat;
+    }
+  }
+
+  // 3. Consult Q-table with 0.0 exploration (pure greedy exploitation with tau tie-breaking)
+  const chosenMove = qLearningAgent.selectAction(board, availableMoves, aiPlayer, 0.0);
+  qLearningAgent.recordBotStep(board, chosenMove, aiPlayer);
   return chosenMove;
 }

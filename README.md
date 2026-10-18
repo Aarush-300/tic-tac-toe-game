@@ -23,10 +23,12 @@ A tactile, accessible, neo-brutalist indie browser game built with **Vite**, **R
 2. **Tactician (Challenging - Vulnerable to Double Forks):**
    - Always executes immediate winning moves (100%) and blocks immediate threats (100%).
    - Uses depth-limited Minimax ($D=2$) with Softmax sampling ($\text{temperature} = 0.8$) over the top 2 candidate moves. Plays sharp tactical moves while remaining susceptible to clever fork traps.
-3. **Adaptive Bot (In-Browser Tabular Q-Learning Agent):**
-   - Learns in real-time from every round played against you.
-   - Pre-warmed with 300 episodes of self-play and updates state-action values $Q(s, a)$ via Bellman reinforcement ($\alpha = 0.2, \gamma = 0.9$).
-   - Displays real-time training generation badge (`Gen #X`) with a one-click memory wipe control.
+3. **Adaptive Bot (Canonical 8-Way Symmetry Q-Learning Agent):**
+   - **8-Way Board Symmetry Reduction ($D_4$ Group)**: Normalizes marks relative to active player (`SELF` vs `OPPONENT`) and maps all 8 rotations and reflections (0°, 90°, 180°, 270° and horizontal flips) to a single lexicographically minimal canonical state. Learns $8\times$ faster across all corners and edges.
+   - **15,000-Episode Pre-Warming**: Pre-trained in memory (<100ms) with decayed exploration ($\epsilon: 1.0 \to 0.1$) against heuristic opponents, learning center control and punishing aggressive corner openings.
+   - **1-Ply Tactical Reflex Filter**: Takes immediate winning moves 100% of the time, and blocks immediate opponent threats 90% of the time.
+   - **Backward Episode Replay & Counterfactual Imitation Learning**: Applies TD-return updates with step penalty ($-0.02$). On a loss, penalizes the bot's blunder and replays the human's winning trajectory into the bot's own policy with $+1.0$ reward, copying the human's winning strategy immediately.
+   - **Live Telemetry**: Real-time Q-confidence and win probability telemetry displayed in `JetBrains Mono` next to the generation badge.
 4. **Local PvP**:
    - Turn-based play for two human players on the same device.
 

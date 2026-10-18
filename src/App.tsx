@@ -19,6 +19,7 @@ export default function App() {
     isAiThinking,
     isMuted,
     qGeneration,
+    qConfidence,
     canUndo,
     handleSquareClick,
     handleUndo,
@@ -63,6 +64,7 @@ export default function App() {
           currentMode={gameMode}
           onSelectMode={handleSelectMode}
           qGeneration={qGeneration}
+          qConfidence={qConfidence}
           onResetQMemory={handleResetQMemory}
           disabled={isAiThinking}
         />

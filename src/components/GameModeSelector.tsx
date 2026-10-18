@@ -6,6 +6,7 @@ interface GameModeSelectorProps {
   currentMode: GameMode;
   onSelectMode: (mode: GameMode) => void;
   qGeneration: number;
+  qConfidence?: { scoreStr: string; winProbStr: string; display: string };
   onResetQMemory: () => void;
   disabled?: boolean;
 }
@@ -14,6 +15,7 @@ export const GameModeSelector: React.FC<GameModeSelectorProps> = ({
   currentMode,
   onSelectMode,
   qGeneration,
+  qConfidence,
   onResetQMemory,
   disabled = false,
 }) => {
@@ -82,10 +84,10 @@ export const GameModeSelector: React.FC<GameModeSelectorProps> = ({
         })}
       </div>
 
-      {/* Adaptive Bot Q-Learning Badge & Wipe Control */}
+      {/* Adaptive Bot Q-Learning Badge, Real-time Confidence & Wipe Control */}
       {currentMode === 'ai-adaptive' && (
-        <div className="flex items-center justify-between px-3 py-1.5 bg-paper-muted border-2 border-ink text-xs font-mono shadow-brutal-sm">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 px-3 py-1.5 bg-paper-muted border-2 border-ink text-xs font-mono shadow-brutal-sm">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-cobalt inline-block animate-ping" />
             <span className="font-semibold text-ink">
               Learned from you:{' '}
@@ -93,13 +95,20 @@ export const GameModeSelector: React.FC<GameModeSelectorProps> = ({
                 Gen #{qGeneration}
               </span>
             </span>
+            {qConfidence && (
+              <span className="text-ink font-medium border-l border-ink/40 pl-2">
+                Confidence:{' '}
+                <span className="font-bold text-cobalt">{qConfidence.scoreStr}</span>{' '}
+                <span className="text-[11px] text-ink-muted">({qConfidence.winProbStr} Win)</span>
+              </span>
+            )}
           </div>
 
           <button
             type="button"
             onClick={onResetQMemory}
-            className="flex items-center gap-1 text-[11px] text-ink hover:text-terracotta underline font-semibold cursor-pointer active:scale-95 transition-colors"
-            title="Reset Q-Learning Agent memory to initial baseline"
+            className="flex items-center gap-1 text-[11px] text-ink hover:text-terracotta underline font-semibold cursor-pointer active:scale-95 transition-colors self-end sm:self-auto"
+            title="Reset Q-Learning Agent memory to initial 15k pre-warmed baseline"
           >
             <RotateCcw className="w-3 h-3" />
             <span>Wipe Memory</span>
