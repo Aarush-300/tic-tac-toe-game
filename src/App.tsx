@@ -1,0 +1,103 @@
+import { useEffect } from 'react';
+import { useTicTacToe } from './hooks/useTicTacToe';
+import { Header } from './components/Header';
+import { GameModeSelector } from './components/GameModeSelector';
+import { Scoreboard } from './components/Scoreboard';
+import { StatusBanner } from './components/StatusBanner';
+import { Board } from './components/Board';
+import { Controls } from './components/Controls';
+import { Footer } from './components/Footer';
+
+export default function App() {
+  const {
+    board,
+    turn,
+    gameMode,
+    winner,
+    winningLine,
+    scores,
+    isAiThinking,
+    isMuted,
+    canUndo,
+    handleSquareClick,
+    handleUndo,
+    handleNewRound,
+    handleResetScores,
+    handleSelectMode,
+    handleToggleMute,
+  } = useTicTacToe();
+
+  // Global hotkeys (U = undo, N = new round, R = reset scores)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      if (e.key === 'u' || e.key === 'U') {
+        if (canUndo) {
+          handleUndo();
+        }
+      } else if (e.key === 'n' || e.key === 'N') {
+        handleNewRound();
+      } else if (e.key === 'r' || e.key === 'R') {
+        handleResetScores();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [canUndo, handleUndo, handleNewRound, handleResetScores]);
+
+  return (
+    <main className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-black text-slate-100 flex flex-col justify-between items-center px-4 py-6 sm:py-8 selection:bg-cyan-500/30 selection:text-cyan-200">
+      <div className="w-full max-w-md mx-auto flex flex-col items-center">
+        <Header isMuted={isMuted} onToggleMute={handleToggleMute} />
+
+        <GameModeSelector
+          currentMode={gameMode}
+          onSelectMode={handleSelectMode}
+          disabled={isAiThinking}
+        />
+
+        <Scoreboard
+          scores={scores}
+          turn={turn}
+          gameMode={gameMode}
+          winner={winner}
+        />
+
+        <StatusBanner
+          winner={winner}
+          turn={turn}
+          isAiThinking={isAiThinking}
+          gameMode={gameMode}
+        />
+
+        <Board
+          board={board}
+          winningLine={winningLine}
+          isGameOver={winner !== null}
+          isAiThinking={isAiThinking}
+          currentTurn={turn}
+          onSquareClick={handleSquareClick}
+        />
+
+        <Controls
+          canUndo={canUndo}
+          onUndo={handleUndo}
+          onNewRound={handleNewRound}
+          onResetScores={handleResetScores}
+        />
+      </div>
+
+      <div className="w-full max-w-md mx-auto">
+        <Footer />
+      </div>
+    </main>
+  );
+}
