@@ -1,6 +1,6 @@
 import type { BoardState, Player } from '../types/game';
 import { checkWinner, getAvailableMoves, WINNING_LINES } from './gameLogic';
-import { qLearningAgent } from './qLearning';
+import { getBotHyperparameters, qLearningAgent } from './qLearning';
 
 const CORNERS = [0, 2, 6, 8] as const;
 const EDGES = [1, 3, 5, 7] as const;
@@ -225,6 +225,7 @@ export function getAdaptiveBotMove(board: BoardState, aiPlayer: Player = 'O'): n
   if (availableMoves.length === 0) return null;
 
   const humanPlayer: Player = aiPlayer === 'X' ? 'O' : 'X';
+  const { tau, blockProb } = getBotHyperparameters(qLearningAgent.focusLevel);
 
   // 1. Immediate 1-Move Win Check (85% execution rate)
   const immediateWin = findImmediateWin(board, aiPlayer);
@@ -233,17 +234,11 @@ export function getAdaptiveBotMove(board: BoardState, aiPlayer: Player = 'O'): n
     return immediateWin;
   }
 
-  // 2. Immediate 1-Move Threat Block Check based on dynamic focus (50% to 85%)
+  // 2. Immediate 1-Move Threat Block Check based on dynamic focus (45% to 99%)
   const immediateThreat = findImmediateWin(board, humanPlayer);
-  if (immediateThreat !== null) {
-    const blockProbability = Math.min(
-      0.85,
-      Math.max(0.50, 1.0 - qLearningAgent.botTemperature)
-    );
-    if (Math.random() < blockProbability) {
-      qLearningAgent.recordBotStep(board, immediateThreat, aiPlayer);
-      return immediateThreat;
-    }
+  if (immediateThreat !== null && Math.random() < blockProb) {
+    qLearningAgent.recordBotStep(board, immediateThreat, aiPlayer);
+    return immediateThreat;
   }
 
   // 3. Consult Q-table using dynamic temperature Boltzmann Softmax over top 3 moves
@@ -251,7 +246,7 @@ export function getAdaptiveBotMove(board: BoardState, aiPlayer: Player = 'O'): n
     board,
     availableMoves,
     aiPlayer,
-    qLearningAgent.botTemperature
+    tau
   );
   qLearningAgent.recordBotStep(board, chosenMove, aiPlayer);
   return chosenMove;

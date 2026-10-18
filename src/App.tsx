@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useTicTacToe } from './hooks/useTicTacToe';
 import { Header } from './components/Header';
 import { GameModeSelector } from './components/GameModeSelector';
+import { BotTuner } from './components/BotTuner';
 import { Scoreboard } from './components/Scoreboard';
 import { StatusBanner } from './components/StatusBanner';
 import { Board } from './components/Board';
@@ -20,8 +21,8 @@ export default function App() {
     isMuted,
     qGeneration,
     qConfidence,
-    botTemperature,
-    botMood,
+    focusLevel,
+    autoAdapt,
     canUndo,
     handleSquareClick,
     handleUndo,
@@ -30,6 +31,8 @@ export default function App() {
     handleSelectMode,
     handleToggleMute,
     handleResetQMemory,
+    handleSetFocusLevel,
+    handleSetAutoAdapt,
   } = useTicTacToe();
 
   // Global hotkeys (U = undo, N = new round, R = reset scores)
@@ -65,13 +68,21 @@ export default function App() {
         <GameModeSelector
           currentMode={gameMode}
           onSelectMode={handleSelectMode}
-          qGeneration={qGeneration}
-          qConfidence={qConfidence}
-          botMood={botMood}
-          botTemperature={botTemperature}
-          onResetQMemory={handleResetQMemory}
           disabled={isAiThinking}
         />
+
+        {gameMode === 'ai-adaptive' && (
+          <BotTuner
+            focusLevel={focusLevel}
+            autoAdapt={autoAdapt}
+            onSetFocusLevel={handleSetFocusLevel}
+            onToggleAutoAdapt={handleSetAutoAdapt}
+            onResetMemory={handleResetQMemory}
+            qGeneration={qGeneration}
+            qConfidence={qConfidence}
+            disabled={isAiThinking}
+          />
+        )}
 
         <Scoreboard
           scores={scores}

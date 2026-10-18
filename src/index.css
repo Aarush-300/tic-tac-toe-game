@@ -52,3 +52,64 @@
 .brutal-btn:active:not(:disabled) {
   @apply translate-x-[2px] translate-y-[2px] shadow-none;
 }
+
+/* Neo-Brutalist Hardware Range Slider */
+input[type="range"].brutal-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+}
+
+input[type="range"].brutal-slider:focus {
+  outline: none;
+}
+
+input[type="range"].brutal-slider::-webkit-slider-runnable-track {
+  height: 10px;
+  background: #E4DFD5;
+  border: 2px solid #18181B;
+  border-radius: 0px;
+}
+
+input[type="range"].brutal-slider::-moz-range-track {
+  height: 10px;
+  background: #E4DFD5;
+  border: 2px solid #18181B;
+  border-radius: 0px;
+}
+
+input[type="range"].brutal-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -7px;
+  height: 20px;
+  width: 20px;
+  background-color: #18181B;
+  border: 2px solid #18181B;
+  border-radius: 0px;
+  box-shadow: 2px 2px 0px 0px #18181B;
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+input[type="range"].brutal-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  background-color: #E04F33;
+}
+
+input[type="range"].brutal-slider::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  background-color: #18181B;
+  border: 2px solid #18181B;
+  border-radius: 0px;
+  box-shadow: 2px 2px 0px 0px #18181B;
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+input[type="range"].brutal-slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  background-color: #E04F33;
+}
+

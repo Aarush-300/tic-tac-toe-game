@@ -3,7 +3,8 @@ import { checkWinner, getAvailableMoves } from './gameLogic';
 
 const Q_TABLE_STORAGE_KEY = 'ttt_q_table_v3';
 const Q_GAMES_COUNT_KEY = 'ttt_q_games_learned_v3';
-const Q_TEMPERATURE_KEY = 'ttt_q_temp_v3';
+const Q_FOCUS_KEY = 'ttt_q_focus_v3';
+const Q_AUTOADAPT_KEY = 'ttt_q_autoadapt_v3';
 const Q_VERSION_KEY = 'ttt_q_version';
 const CURRENT_Q_VERSION = 'q_table_v3';
 
@@ -17,11 +18,64 @@ export interface CanonicalResult {
   symIndex: number;
 }
 
-export type BotMoodLabel = 'Casual' | 'Focused' | 'Locked In';
+export interface BotHyperparameters {
+  tau: number;
+  decayRate: number;
+  blockProb: number;
+}
 
-export interface BotMood {
-  label: BotMoodLabel;
-  colorClass: string;
+export interface BotPersona {
+  title: 'DAYDREAMING' | 'CLUB RIVAL' | 'TACTICAL' | 'LOCKED IN';
+  badgeClass: string;
+}
+
+export type BotMood = BotPersona;
+
+/**
+ * Derives dynamic hyperparameters from normalized focusLevel (0 to 100):
+ * - Softmax Temperature tau: 0.60 down to 0.04
+ * - Memory Retention decayRate: 0.94 up to 0.995
+ * - 1-Ply Reflex blockProb: 0.45 up to 0.99
+ */
+export function getBotHyperparameters(focusLevel: number): BotHyperparameters {
+  const clamped = Math.max(0, Math.min(100, Math.round(focusLevel)));
+  const tau = Number((0.60 - (clamped / 100) * 0.56).toFixed(3));
+  const decayRate = Number((0.94 + (clamped / 100) * 0.055).toFixed(4));
+  const blockProb = Number((0.45 + (clamped / 100) * 0.54).toFixed(2));
+  return { tau, decayRate, blockProb };
+}
+
+/**
+ * Computes bot persona title and badge styling based on focusLevel:
+ * - 0–30%: DAYDREAMING (Amber badge)
+ * - 31–65%: CLUB RIVAL (Cobalt Blue badge)
+ * - 66–85%: TACTICAL (Terracotta Orange badge)
+ * - 86–100%: LOCKED IN (Charcoal Black badge with white text)
+ */
+export function getBotPersona(focusLevel: number): BotPersona {
+  const clamped = Math.max(0, Math.min(100, Math.round(focusLevel)));
+  if (clamped <= 30) {
+    return {
+      title: 'DAYDREAMING',
+      badgeClass: 'bg-amber-200 text-amber-950 border-ink',
+    };
+  }
+  if (clamped <= 65) {
+    return {
+      title: 'CLUB RIVAL',
+      badgeClass: 'bg-cobalt-light text-cobalt border-ink',
+    };
+  }
+  if (clamped <= 85) {
+    return {
+      title: 'TACTICAL',
+      badgeClass: 'bg-terracotta-light text-terracotta border-ink',
+    };
+  }
+  return {
+    title: 'LOCKED IN',
+    badgeClass: 'bg-ink text-paper-surface border-ink',
+  };
 }
 
 /**
@@ -57,7 +111,9 @@ export const INVERSE_MAP: readonly (readonly number[])[] = FORWARD_MAP.map((fwd)
 export class QLearningAgent {
   public qTable: Record<string, Record<number, number>> = {};
   public gamesLearned: number = 0;
-  public botTemperature: number = 0.30; // Dynamic rubber-band temperature
+  public focusLevel: number = 50; // Range: 0 to 100
+  public autoAdapt: boolean = true; // Auto rubber-banding flag
+  public botTemperature: number = 0.32; // Derived from focusLevel
   public isPrewarmed: boolean = false;
 
   private botTrajectory: QStep[] = [];
@@ -65,6 +121,26 @@ export class QLearningAgent {
 
   constructor() {
     this.initOrMigrateStorage();
+  }
+
+  /**
+   * Updates focus level. If changed manually by the user, sets autoAdapt to false.
+   */
+  public setFocusLevel(level: number, manual: boolean = true): void {
+    this.focusLevel = Math.max(0, Math.min(100, Math.round(level)));
+    if (manual) {
+      this.autoAdapt = false;
+    }
+    this.botTemperature = getBotHyperparameters(this.focusLevel).tau;
+    this.saveFocusConfig();
+  }
+
+  /**
+   * Sets auto-adapt rubber-banding state.
+   */
+  public setAutoAdapt(enabled: boolean): void {
+    this.autoAdapt = enabled;
+    this.saveFocusConfig();
   }
 
   /**
@@ -125,30 +201,21 @@ export class QLearningAgent {
   }
 
   /**
-   * Returns current mood category and UI styling based on dynamic temperature tau.
-   * - Casual: tau > 0.32
-   * - Focused: tau in [0.18, 0.32]
-   * - Locked In: tau < 0.18
+   * Returns current mood category and UI styling based on focusLevel.
    */
-  public getMood(): BotMood {
-    if (this.botTemperature > 0.32) {
-      return { label: 'Casual', colorClass: 'text-amber-700 bg-amber-100 border-amber-800' };
-    }
-    if (this.botTemperature >= 0.18) {
-      return { label: 'Focused', colorClass: 'text-cobalt bg-cobalt-light border-cobalt' };
-    }
-    return { label: 'Locked In', colorClass: 'text-terracotta bg-terracotta-light border-terracotta' };
+  public getMood(): BotPersona {
+    return getBotPersona(this.focusLevel);
   }
 
   /**
    * Selects an action using Boltzmann Softmax sampling over the top 3 legal moves.
-   * Uses dynamic temperature tau for rubber-band difficulty.
+   * Uses dynamic temperature tau derived from focusLevel.
    */
   public selectAction(
     board: BoardState,
     availableMoves: number[],
     activePlayer: Player = 'O',
-    temperature: number = this.botTemperature
+    temperature?: number
   ): number {
     if (availableMoves.length === 0) return 0;
     if (availableMoves.length === 1) return availableMoves[0];
@@ -168,7 +235,8 @@ export class QLearningAgent {
     const topCandidates = scoredMoves.slice(0, 3);
 
     // Boltzmann Softmax sampling over top candidates
-    const tau = Math.max(0.05, temperature);
+    const activeTau = temperature ?? getBotHyperparameters(this.focusLevel).tau;
+    const tau = Math.max(0.04, activeTau);
     const maxQ = Math.max(...topCandidates.map((c) => c.qValue));
     const expScores = topCandidates.map((c) => Math.exp((c.qValue - maxQ) / tau));
     const sumExp = expScores.reduce((acc, v) => acc + v, 0);
@@ -237,27 +305,32 @@ export class QLearningAgent {
 
   /**
    * Updates the Q-table when a game against the human concludes:
-   * 1. Dynamic Softmax Rubber-Banding adjustments:
-   *    - Human Wins: tau -= 0.06 (clamps at 0.10) -> Bot focuses up.
-   *    - Bot Wins: tau += 0.08 (clamps at 0.50) -> Bot relaxes.
-   *    - Draw: tau += 0.03 (clamps at 0.50) -> Stalemate streaks open up.
+   * 1. Auto-Adapt Rubber-Banding adjustments (if autoAdapt === true):
+   *    - Human Wins: focusLevel = min(95, focusLevel + 12) (Bot locks in).
+   *    - Bot Wins: focusLevel = max(15, focusLevel - 15) (Bot relaxes).
+   *    - Draw: focusLevel = max(20, focusLevel - 5) (Stalemate streaks open up).
    * 2. Softer learning rate (alpha = 0.25).
    * 3. Counterfactual Imitation Learning on loss (+0.5 reward).
-   * 4. Memory Decay (forgetting factor 0.97).
+   * 4. Memory Decay / Retention rate derived from focusLevel.
    */
   public finalizeGame(winner: Winner, aiPlayer: Player = 'O'): number {
-    // 1. Dynamic Softmax Rubber-Banding Adjustment
-    if (winner !== null && winner !== aiPlayer && winner !== 'Draw') {
-      // Human won: tighten bot focus
-      this.botTemperature = Math.max(0.10, this.botTemperature - 0.06);
-    } else if (winner === aiPlayer) {
-      // Bot won: relax bot difficulty
-      this.botTemperature = Math.min(0.50, this.botTemperature + 0.08);
-    } else if (winner === 'Draw') {
-      // Stalemate: gently loosen up to allow decisive games
-      this.botTemperature = Math.min(0.50, this.botTemperature + 0.03);
+    // 1. Auto-Adapt Rubber-Banding Adjustment
+    if (this.autoAdapt) {
+      if (winner !== null && winner !== aiPlayer && winner !== 'Draw') {
+        // Human won: tighten focus
+        this.focusLevel = Math.min(95, this.focusLevel + 12);
+      } else if (winner === aiPlayer) {
+        // Bot won: relax focus
+        this.focusLevel = Math.max(15, this.focusLevel - 15);
+      } else if (winner === 'Draw') {
+        // Stalemate: gently loosen up
+        this.focusLevel = Math.max(20, this.focusLevel - 5);
+      }
+      this.botTemperature = getBotHyperparameters(this.focusLevel).tau;
+      this.saveFocusConfig();
     }
 
+    const { decayRate } = getBotHyperparameters(this.focusLevel);
     const alpha = 0.25; // Softer live learning rate
     const gamma = 0.95;
     const stepPenalty = -0.02;
@@ -294,12 +367,11 @@ export class QLearningAgent {
       }
     }
 
-    // 4. Memory Decay (forgetting factor of 0.97)
-    // Ensures old lessons slowly fade over 10-15 games
+    // 4. Memory Decay / Retention rate derived from focusLevel
     for (const state of Object.keys(this.qTable)) {
       for (const action of Object.keys(this.qTable[state])) {
         const actNum = Number(action);
-        this.qTable[state][actNum] *= 0.97;
+        this.qTable[state][actNum] *= decayRate;
       }
     }
 
@@ -374,16 +446,20 @@ export class QLearningAgent {
   }
 
   /**
-   * Resets memory, purges table, restores baseline 0.30 temperature, and runs 150 self-play episodes.
+   * Resets memory, purges table, restores baseline focusLevel (50), autoAdapt (true),
+   * and runs 150 self-play episodes.
    */
   public resetMemory(): void {
     this.qTable = {};
     this.gamesLearned = 0;
-    this.botTemperature = 0.30;
+    this.focusLevel = 50;
+    this.autoAdapt = true;
+    this.botTemperature = getBotHyperparameters(50).tau;
     this.botTrajectory = [];
     this.humanTrajectory = [];
     this.preWarmPolicy(150);
     this.saveToStorage();
+    this.saveFocusConfig();
   }
 
   private initOrMigrateStorage(): void {
@@ -398,11 +474,15 @@ export class QLearningAgent {
         // Purge over-trained table and initialize v3
         localStorage.removeItem(Q_TABLE_STORAGE_KEY);
         localStorage.removeItem(Q_GAMES_COUNT_KEY);
-        localStorage.removeItem(Q_TEMPERATURE_KEY);
+        localStorage.removeItem(Q_FOCUS_KEY);
+        localStorage.removeItem(Q_AUTOADAPT_KEY);
         localStorage.setItem(Q_VERSION_KEY, CURRENT_Q_VERSION);
-        this.botTemperature = 0.30;
+        this.focusLevel = 50;
+        this.autoAdapt = true;
+        this.botTemperature = getBotHyperparameters(50).tau;
         this.preWarmPolicy(150);
         this.saveToStorage();
+        this.saveFocusConfig();
         return;
       }
 
@@ -411,13 +491,20 @@ export class QLearningAgent {
         this.gamesLearned = parseInt(savedCount, 10) || 0;
       }
 
-      const savedTemp = localStorage.getItem(Q_TEMPERATURE_KEY);
-      if (savedTemp !== null) {
-        const parsed = parseFloat(savedTemp);
-        if (!isNaN(parsed) && parsed >= 0.10 && parsed <= 0.50) {
-          this.botTemperature = parsed;
+      const savedFocus = localStorage.getItem(Q_FOCUS_KEY);
+      if (savedFocus !== null) {
+        const parsed = parseInt(savedFocus, 10);
+        if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+          this.focusLevel = parsed;
         }
       }
+
+      const savedAutoAdapt = localStorage.getItem(Q_AUTOADAPT_KEY);
+      if (savedAutoAdapt !== null) {
+        this.autoAdapt = savedAutoAdapt === 'true';
+      }
+
+      this.botTemperature = getBotHyperparameters(this.focusLevel).tau;
 
       const savedTable = localStorage.getItem(Q_TABLE_STORAGE_KEY);
       if (savedTable) {
@@ -430,8 +517,20 @@ export class QLearningAgent {
     } catch {
       this.qTable = {};
       this.gamesLearned = 0;
-      this.botTemperature = 0.30;
+      this.focusLevel = 50;
+      this.autoAdapt = true;
+      this.botTemperature = getBotHyperparameters(50).tau;
       this.preWarmPolicy(150);
+    }
+  }
+
+  public saveFocusConfig(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(Q_FOCUS_KEY, String(this.focusLevel));
+      localStorage.setItem(Q_AUTOADAPT_KEY, String(this.autoAdapt));
+    } catch {
+      // Ignore storage errors
     }
   }
 
@@ -441,7 +540,7 @@ export class QLearningAgent {
       localStorage.setItem(Q_VERSION_KEY, CURRENT_Q_VERSION);
       localStorage.setItem(Q_TABLE_STORAGE_KEY, JSON.stringify(this.qTable));
       localStorage.setItem(Q_GAMES_COUNT_KEY, String(this.gamesLearned));
-      localStorage.setItem(Q_TEMPERATURE_KEY, this.botTemperature.toFixed(2));
+      this.saveFocusConfig();
     } catch {
       // Ignore storage errors
     }

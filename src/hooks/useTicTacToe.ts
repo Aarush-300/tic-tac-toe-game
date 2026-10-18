@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BoardState, GameMode, Player, ScoreState, Winner, WinningLine } from '../types/game';
 import { checkWinner, getAvailableMoves } from '../utils/gameLogic';
 import { getClubPlayerMove, getTacticianMove, getAdaptiveBotMove } from '../utils/aiEngine';
-import { qLearningAgent } from '../utils/qLearning';
+import { qLearningAgent, getBotPersona } from '../utils/qLearning';
 import { sound } from '../utils/sound';
 
 interface HistoryStep {
@@ -67,20 +67,23 @@ export function useTicTacToe() {
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [isMuted, setIsMuted] = useState(sound.isMuted);
   const [qGeneration, setQGeneration] = useState<number>(() => qLearningAgent.gamesLearned);
+  const [focusLevel, setFocusLevelState] = useState<number>(() => qLearningAgent.focusLevel);
+  const [autoAdapt, setAutoAdaptState] = useState<boolean>(() => qLearningAgent.autoAdapt);
   const [botTemperature, setBotTemperature] = useState<number>(() => qLearningAgent.botTemperature);
 
   const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Dynamic bot mood based on rubber-band temperature
+  // Dynamic bot persona and mood based on focusLevel
+  const botPersona = useMemo(() => {
+    return getBotPersona(focusLevel);
+  }, [focusLevel]);
+
   const botMood = useMemo(() => {
-    if (botTemperature > 0.32) {
-      return { label: 'Casual' as const, colorClass: 'text-amber-700 bg-amber-100 border-amber-800' };
-    }
-    if (botTemperature >= 0.18) {
-      return { label: 'Focused' as const, colorClass: 'text-cobalt bg-cobalt-light border-cobalt' };
-    }
-    return { label: 'Locked In' as const, colorClass: 'text-terracotta bg-terracotta-light border-terracotta' };
-  }, [botTemperature]);
+    return {
+      label: botPersona.title,
+      colorClass: botPersona.badgeClass,
+    };
+  }, [botPersona]);
 
   // Sync scores to localStorage
   useEffect(() => {
@@ -145,6 +148,8 @@ export function useTicTacToe() {
       if (gameMode === 'ai-adaptive') {
         const nextGen = qLearningAgent.finalizeGame(winningPlayer, 'O');
         setQGeneration(nextGen);
+        setFocusLevelState(qLearningAgent.focusLevel);
+        setAutoAdaptState(qLearningAgent.autoAdapt);
         setBotTemperature(qLearningAgent.botTemperature);
       }
     },
@@ -349,7 +354,23 @@ export function useTicTacToe() {
     sound.playClick();
     qLearningAgent.resetMemory();
     setQGeneration(0);
+    setFocusLevelState(qLearningAgent.focusLevel);
+    setAutoAdaptState(qLearningAgent.autoAdapt);
     setBotTemperature(qLearningAgent.botTemperature);
+  }, []);
+
+  // Update focus level directly (disables autoAdapt)
+  const handleSetFocusLevel = useCallback((level: number) => {
+    qLearningAgent.setFocusLevel(level, true);
+    setFocusLevelState(qLearningAgent.focusLevel);
+    setAutoAdaptState(qLearningAgent.autoAdapt);
+    setBotTemperature(qLearningAgent.botTemperature);
+  }, []);
+
+  // Toggle or set autoAdapt rubber-banding
+  const handleSetAutoAdapt = useCallback((enabled: boolean) => {
+    qLearningAgent.setAutoAdapt(enabled);
+    setAutoAdaptState(qLearningAgent.autoAdapt);
   }, []);
 
   return {
@@ -364,8 +385,11 @@ export function useTicTacToe() {
     isMuted,
     qGeneration,
     qConfidence,
+    focusLevel,
+    autoAdapt,
     botTemperature,
     botMood,
+    botPersona,
     canUndo: history.length > 0 && !isAiThinking,
     handleSquareClick,
     handleUndo,
@@ -374,5 +398,7 @@ export function useTicTacToe() {
     handleSelectMode,
     handleToggleMute,
     handleResetQMemory,
+    handleSetFocusLevel,
+    handleSetAutoAdapt,
   };
 }

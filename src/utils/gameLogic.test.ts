@@ -8,7 +8,7 @@ import {
   getAdaptiveBotMove,
   softmaxSample,
 } from './aiEngine';
-import { QLearningAgent, INVERSE_MAP } from './qLearning';
+import { QLearningAgent, INVERSE_MAP, getBotHyperparameters, getBotPersona } from './qLearning';
 
 describe('Tic-Tac-Toe Game Logic & AI Engine', () => {
   describe('Win and Draw Detection', () => {
@@ -198,53 +198,122 @@ describe('Tic-Tac-Toe Game Logic & AI Engine', () => {
       expect(canonicalKeys.size).toBe(1);
     });
 
-    it('dynamic rubber-banding decreases temperature on human win and increases on bot win/draw', () => {
+    it('derives exact hyperparameter bounds across focusLevel 0 to 100', () => {
+      // Bounds at 0%
+      const minBounds = getBotHyperparameters(0);
+      expect(minBounds.tau).toBe(0.60);
+      expect(minBounds.decayRate).toBe(0.94);
+      expect(minBounds.blockProb).toBe(0.45);
+
+      // Bounds at 100%
+      const maxBounds = getBotHyperparameters(100);
+      expect(maxBounds.tau).toBe(0.04);
+      expect(maxBounds.decayRate).toBe(0.995);
+      expect(maxBounds.blockProb).toBe(0.99);
+
+      // Midpoint at 50%
+      const midBounds = getBotHyperparameters(50);
+      expect(midBounds.tau).toBe(0.32);
+      expect(midBounds.decayRate).toBe(0.9675);
+      expect(midBounds.blockProb).toBe(0.72);
+
+      // Clamping out-of-range inputs
+      expect(getBotHyperparameters(-50)).toEqual(minBounds);
+      expect(getBotHyperparameters(150)).toEqual(maxBounds);
+    });
+
+    it('maps focusLevel to correct bot persona title and badgeClass', () => {
+      expect(getBotPersona(0).title).toBe('DAYDREAMING');
+      expect(getBotPersona(30).title).toBe('DAYDREAMING');
+      expect(getBotPersona(31).title).toBe('CLUB RIVAL');
+      expect(getBotPersona(50).title).toBe('CLUB RIVAL');
+      expect(getBotPersona(65).title).toBe('CLUB RIVAL');
+      expect(getBotPersona(66).title).toBe('TACTICAL');
+      expect(getBotPersona(85).title).toBe('TACTICAL');
+      expect(getBotPersona(86).title).toBe('LOCKED IN');
+      expect(getBotPersona(100).title).toBe('LOCKED IN');
+    });
+
+    it('dynamic rubber-banding shifts focusLevel when autoAdapt is true', () => {
       const agent = new QLearningAgent();
-      agent.botTemperature = 0.30;
-      expect(agent.getMood().label).toBe('Focused');
+      agent.focusLevel = 50;
+      agent.autoAdapt = true;
+      agent.botTemperature = getBotHyperparameters(50).tau;
 
-      // Human wins: bot tightens focus
+      // Human wins: bot locks in (+12)
       agent.finalizeGame('X', 'O');
-      expect(agent.botTemperature).toBeCloseTo(0.24, 2);
-      expect(agent.getMood().label).toBe('Focused');
+      expect(agent.focusLevel).toBe(62);
+      expect(agent.botTemperature).toBe(getBotHyperparameters(62).tau);
+      expect(agent.getMood().title).toBe('CLUB RIVAL');
 
-      // Human wins twice more -> Locked In (< 0.18)
+      // Human wins two more times -> 74 (Tactical), 86 (Locked In)
       agent.finalizeGame('X', 'O');
-      agent.finalizeGame('X', 'O');
-      expect(agent.botTemperature).toBeCloseTo(0.12, 2);
-      expect(agent.getMood().label).toBe('Locked In');
+      expect(agent.focusLevel).toBe(74);
+      expect(agent.getMood().title).toBe('TACTICAL');
 
-      // Clamps at minimum 0.10
       agent.finalizeGame('X', 'O');
-      expect(agent.botTemperature).toBe(0.10);
+      expect(agent.focusLevel).toBe(86);
+      expect(agent.getMood().title).toBe('LOCKED IN');
 
-      // Bot wins: bot relaxes (+0.08)
+      // Human wins again -> clamped at max 95
+      agent.finalizeGame('X', 'O');
+      expect(agent.focusLevel).toBe(95);
+
+      // Bot wins: bot relaxes (-15)
       agent.finalizeGame('O', 'O');
-      expect(agent.botTemperature).toBeCloseTo(0.18, 2);
+      expect(agent.focusLevel).toBe(80);
 
-      // Draw: bot gently loosens (+0.03)
+      // Stalemate / Draw: gently loosens (-5)
       agent.finalizeGame('Draw', 'O');
-      expect(agent.botTemperature).toBeCloseTo(0.21, 2);
+      expect(agent.focusLevel).toBe(75);
 
-      // Winning streak relaxes bot up to maximum 0.50 (Casual)
+      // Long bot winning streak clamps at minimum 15
       for (let i = 0; i < 6; i++) {
         agent.finalizeGame('O', 'O');
       }
-      expect(agent.botTemperature).toBe(0.50);
-      expect(agent.getMood().label).toBe('Casual');
+      expect(agent.focusLevel).toBe(15);
+      expect(agent.getMood().title).toBe('DAYDREAMING');
     });
 
-    it('decays Q-table entries by 0.97 forgetting factor on game finalization', () => {
+    it('preserves user custom focusLevel and disables adjustments when autoAdapt is false', () => {
       const agent = new QLearningAgent();
+      // Manual slider adjustment sets autoAdapt to false
+      agent.setFocusLevel(42, true);
+      expect(agent.focusLevel).toBe(42);
+      expect(agent.autoAdapt).toBe(false);
+
+      // Ending games does NOT shift focusLevel when autoAdapt is false
+      agent.finalizeGame('X', 'O');
+      expect(agent.focusLevel).toBe(42);
+
+      agent.finalizeGame('O', 'O');
+      expect(agent.focusLevel).toBe(42);
+
+      agent.finalizeGame('Draw', 'O');
+      expect(agent.focusLevel).toBe(42);
+
+      // Re-enabling autoAdapt allows rubber-banding again
+      agent.setAutoAdapt(true);
+      expect(agent.autoAdapt).toBe(true);
+      agent.finalizeGame('X', 'O');
+      expect(agent.focusLevel).toBe(54); // 42 + 12
+    });
+
+    it('decays Q-table entries according to dynamic decayRate derived from focusLevel', () => {
+      const agent = new QLearningAgent();
+      agent.setFocusLevel(100, true); // decayRate = 0.995
       const testState = '.........';
       agent.setQ(testState, 0, 1.0);
 
-      const beforeQ = agent.getQ(testState, 0);
-      expect(beforeQ).toBe(1.0);
-
       agent.finalizeGame('Draw', 'O');
       const afterQ = agent.getQ(testState, 0);
-      expect(afterQ).toBeCloseTo(0.97, 4);
+      expect(afterQ).toBeCloseTo(0.995, 4);
+
+      // At focusLevel = 0, decayRate = 0.94
+      agent.setFocusLevel(0, true);
+      agent.setQ(testState, 1, 1.0);
+      agent.finalizeGame('Draw', 'O');
+      expect(agent.getQ(testState, 1)).toBeCloseTo(0.94, 4);
     });
 
     it('selects legal moves from open squares using Softmax over top 3 moves', () => {
@@ -285,15 +354,17 @@ describe('Tic-Tac-Toe Game Logic & AI Engine', () => {
       expect(winProb).toBeLessThanOrEqual(99);
     });
 
-    it('resetMemory clears learned games count, restores 0.30 temperature, and re-seeds baseline', () => {
+    it('resetMemory clears learned games count, restores baseline focusLevel (50) and autoAdapt (true)', () => {
       const agent = new QLearningAgent();
       agent.gamesLearned = 14;
-      agent.botTemperature = 0.12;
+      agent.setFocusLevel(88, true);
       agent.resetMemory();
 
       expect(agent.gamesLearned).toBe(0);
-      expect(agent.botTemperature).toBe(0.30);
-      expect(agent.getMood().label).toBe('Focused');
+      expect(agent.focusLevel).toBe(50);
+      expect(agent.autoAdapt).toBe(true);
+      expect(agent.botTemperature).toBe(getBotHyperparameters(50).tau);
+      expect(agent.getMood().title).toBe('CLUB RIVAL');
       expect(Object.keys(agent.qTable).length).toBeGreaterThanOrEqual(20);
     });
   });

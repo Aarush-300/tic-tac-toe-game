@@ -1,27 +1,16 @@
 import React from 'react';
-import { Users, User, ShieldAlert, Cpu, RotateCcw } from 'lucide-react';
+import { Users, User, ShieldAlert, Cpu } from 'lucide-react';
 import type { GameMode } from '../types/game';
-import type { BotMood } from '../utils/qLearning';
 
 interface GameModeSelectorProps {
   currentMode: GameMode;
   onSelectMode: (mode: GameMode) => void;
-  qGeneration: number;
-  qConfidence?: { scoreStr: string; winProbStr: string; display: string };
-  botMood?: BotMood;
-  botTemperature?: number;
-  onResetQMemory: () => void;
   disabled?: boolean;
 }
 
 export const GameModeSelector: React.FC<GameModeSelectorProps> = ({
   currentMode,
   onSelectMode,
-  qGeneration,
-  qConfidence,
-  botMood,
-  botTemperature,
-  onResetQMemory,
   disabled = false,
 }) => {
   const modes: { id: GameMode; label: string; icon: React.ReactNode; desc: string }[] = [
@@ -88,53 +77,7 @@ export const GameModeSelector: React.FC<GameModeSelectorProps> = ({
           );
         })}
       </div>
-
-      {/* Adaptive Bot Q-Learning Badge, Mood, Real-time Confidence & Wipe Control */}
-      {currentMode === 'ai-adaptive' && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 px-3 py-1.5 bg-paper-muted border-2 border-ink text-xs font-mono shadow-brutal-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-cobalt inline-block animate-ping" />
-            <span className="font-semibold text-ink">
-              Learned from you:{' '}
-              <span className="bg-paper-surface px-1.5 py-0.2 border border-ink font-bold">
-                Gen #{qGeneration}
-              </span>
-            </span>
-
-            {botMood && (
-              <span className="border-l border-ink/40 pl-2 text-ink font-semibold flex items-center gap-1">
-                <span>Mood:</span>
-                <span className={`px-1.5 py-0.2 border text-[11px] font-bold ${botMood.colorClass}`}>
-                  {botMood.label}
-                </span>
-                {botTemperature !== undefined && (
-                  <span className="text-[10px] text-ink-muted">
-                    (τ={botTemperature.toFixed(2)})
-                  </span>
-                )}
-              </span>
-            )}
-
-            {qConfidence && (
-              <span className="text-ink font-medium border-l border-ink/40 pl-2">
-                Confidence:{' '}
-                <span className="font-bold text-cobalt">{qConfidence.scoreStr}</span>{' '}
-                <span className="text-[11px] text-ink-muted">({qConfidence.winProbStr} Win)</span>
-              </span>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={onResetQMemory}
-            className="flex items-center gap-1 text-[11px] text-ink hover:text-terracotta underline font-semibold cursor-pointer active:scale-95 transition-colors self-end sm:self-auto"
-            title="Reset Q-Learning Agent memory to initial baseline"
-          >
-            <RotateCcw className="w-3 h-3" />
-            <span>Wipe Memory</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 };
+
