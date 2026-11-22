@@ -1,41 +1,38 @@
-import React from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { useRef } from 'react';
+import { CircleHelp, Volume2, VolumeX, X } from 'lucide-react';
 
-interface HeaderProps {
-  isMuted: boolean;
-  onToggleMute: () => void;
-}
-
-export const Header: React.FC<HeaderProps> = ({ isMuted, onToggleMute }) => {
+export function Header({ isMuted, toggleMute }: { isMuted: boolean; toggleMute: () => void }) {
+  const rules = useRef<HTMLDialogElement>(null);
   return (
-    <header className="w-full flex items-center justify-between pb-3 border-b-2 border-ink mb-4">
-      <div className="flex flex-col">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-xs font-bold tracking-widest text-ink px-1.5 py-0.5 bg-paper-muted border border-ink">
-            SYS:01
-          </span>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-ink font-sans">
-            TIC-TAC-TOE
-          </h1>
-        </div>
-        <span className="text-[11px] font-mono uppercase tracking-wider text-ink-muted">
-          Paper & Ink // Tactical Engine
-        </span>
+    <header className="topbar">
+      <div className="topbar-inner">
+        <div className="wordmark"><span className="club-mark" aria-hidden="true"><i/><i/><i/><i/></span>Grid Club</div>
+        <nav aria-label="Game tools">
+          <button onClick={toggleMute} aria-label={isMuted ? 'Sound off' : 'Sound on'} aria-pressed={!isMuted}>
+            {isMuted ? <VolumeX/> : <Volume2/>}<span>Sound {isMuted ? 'off' : 'on'}</span>
+          </button>
+          <span className="nav-rule" aria-hidden="true"/>
+          <button onClick={() => rules.current?.showModal()}><CircleHelp/><span>How to play</span></button>
+        </nav>
       </div>
-
-      <button
-        onClick={onToggleMute}
-        type="button"
-        className="p-2 bg-paper-surface border-2 border-ink text-ink shadow-brutal-sm hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-brutal active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all duration-100"
-        aria-label={isMuted ? 'Unmute game sounds' : 'Mute game sounds'}
-        title={isMuted ? 'Unmute game sounds' : 'Mute game sounds'}
-      >
-        {isMuted ? (
-          <VolumeX className="w-4 h-4 text-terracotta" />
-        ) : (
-          <Volume2 className="w-4 h-4 text-ink" />
-        )}
-      </button>
+      <dialog ref={rules} aria-labelledby="rules-heading">
+        <div className="section-head"><h2 id="rules-heading">How to play</h2>
+          <form method="dialog"><button className="icon-button" aria-label="Close rules" autoFocus><X/></button></form>
+        </div>
+        <p>X goes first. Take turns placing a mark in an empty square. Get three in a row across, down or diagonally to win.</p>
+        <p>A full board with no winning line is a draw. Against a bot, you always play X. Choose Two players to share the board with a friend.</p>
+        <h3>Playing with a keyboard</h3>
+        <p>Tab to the board. Use the arrow keys to choose a square and Enter or Space to mark it. While the board has focus, U undoes your move and N starts a new round.</p>
+      </dialog>
     </header>
   );
-};
+}
+
+export function GamePieces() {
+  return (
+    <div aria-hidden="true" className="game-pieces">
+      <div className="piece-art art-x"><i/><i/><i/><i/><i/></div>
+      <div className="piece-art art-o"><i/><i/><i/><i/><i/></div>
+    </div>
+  );
+}

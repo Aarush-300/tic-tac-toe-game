@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
 import { useTicTacToe } from './hooks/useTicTacToe';
-import { Header } from './components/Header';
+import { Header, GamePieces } from './components/Header';
 import { GameModeSelector } from './components/GameModeSelector';
+import { opponents } from './types/game';
 import { BotTuner } from './components/BotTuner';
 import { Scoreboard } from './components/Scoreboard';
 import { StatusBanner } from './components/StatusBanner';
@@ -10,114 +10,35 @@ import { Controls } from './components/Controls';
 import { Footer } from './components/Footer';
 
 export default function App() {
-  const {
-    board,
-    turn,
-    gameMode,
-    winner,
-    winningLine,
-    scores,
-    isAiThinking,
-    isMuted,
-    qGeneration,
-    qConfidence,
-    focusLevel,
-    autoAdapt,
-    canUndo,
-    handleSquareClick,
-    handleUndo,
-    handleNewRound,
-    handleResetScores,
-    handleSelectMode,
-    handleToggleMute,
-    handleResetQMemory,
-    handleSetFocusLevel,
-    handleSetAutoAdapt,
-  } = useTicTacToe();
-
-  // Global hotkeys (U = undo, N = new round, R = reset scores)
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      if (e.key === 'u' || e.key === 'U') {
-        if (canUndo) {
-          handleUndo();
-        }
-      } else if (e.key === 'n' || e.key === 'N') {
-        handleNewRound();
-      } else if (e.key === 'r' || e.key === 'R') {
-        handleResetScores();
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [canUndo, handleUndo, handleNewRound, handleResetScores]);
-
-  return (
-    <main className="min-h-screen flex flex-col justify-between items-center px-4 py-6 sm:py-8">
-      <div className="w-full max-w-md mx-auto flex flex-col items-center">
-        <Header isMuted={isMuted} onToggleMute={handleToggleMute} />
-
-        <GameModeSelector
-          currentMode={gameMode}
-          onSelectMode={handleSelectMode}
-          disabled={isAiThinking}
-        />
-
-        {gameMode === 'ai-adaptive' && (
-          <BotTuner
-            focusLevel={focusLevel}
-            autoAdapt={autoAdapt}
-            onSetFocusLevel={handleSetFocusLevel}
-            onToggleAutoAdapt={handleSetAutoAdapt}
-            onResetMemory={handleResetQMemory}
-            qGeneration={qGeneration}
-            qConfidence={qConfidence}
-            disabled={isAiThinking}
-          />
-        )}
-
-        <Scoreboard
-          scores={scores}
-          turn={turn}
-          gameMode={gameMode}
-          winner={winner}
-        />
-
-        <StatusBanner
-          winner={winner}
-          turn={turn}
-          isAiThinking={isAiThinking}
-          gameMode={gameMode}
-        />
-
-        <Board
-          board={board}
-          winningLine={winningLine}
-          isGameOver={winner !== null}
-          isAiThinking={isAiThinking}
-          currentTurn={turn}
-          onSquareClick={handleSquareClick}
-        />
-
-        <Controls
-          canUndo={canUndo}
-          onUndo={handleUndo}
-          onNewRound={handleNewRound}
-          onResetScores={handleResetScores}
-        />
+  const game = useTicTacToe();
+  const local = game.gameMode === 'pvp';
+  return <>
+    <Header isMuted={game.isMuted} toggleMute={game.toggleMute}/>
+    <main className="room">
+      <div className="intro">
+        <div><h1>Tic Tac <em>Toe</em></h1><p>Get three in a row, in any direction.</p></div>
+        <GamePieces/>
       </div>
-
-      <div className="w-full max-w-md mx-auto">
-        <Footer />
+      <div className="game-layout">
+        <section className="play-area" aria-label="Game table">
+          <div className="table">
+            <StatusBanner winner={game.winner} turn={game.turn} local={local} round={game.round}/>
+            <Board board={game.board} winningLine={game.winningLine} turn={game.turn}
+              locked={!!game.winner || game.isAiThinking} play={game.play} undo={game.undo} newRound={game.newRound}/>
+            <div className="table-key">
+              <span><i className="mini-mark mark-X"/>{local ? 'Player X' : 'You'}</span>
+              <span><i className="mini-mark mark-O"/>{local ? 'Player O' : opponents[game.gameMode].name}</span>
+            </div>
+          </div>
+          <Controls newRound={game.newRound} undo={game.undo} canUndo={game.moves.length > 0}/>
+        </section>
+        <aside>
+          <GameModeSelector currentMode={game.gameMode} selectMode={game.selectMode}/>
+          {game.gameMode === 'ai-adaptive' && game.agent && <BotTuner agent={game.agent} setFocus={game.setFocus} setAuto={game.setAuto} reset={game.resetMemory}/>}
+          <Scoreboard scores={game.scores} reset={game.resetScores}/>
+        </aside>
       </div>
+      <Footer/>
     </main>
-  );
+  </>;
 }

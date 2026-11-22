@@ -1,90 +1,63 @@
-import React, { useRef } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 import type { BoardState, Player, WinningLine } from '../types/game';
-import { Square } from './Square';
 
 interface BoardProps {
   board: BoardState;
   winningLine: WinningLine;
-  isGameOver: boolean;
-  isAiThinking: boolean;
-  currentTurn: Player;
-  onSquareClick: (index: number) => void;
+  turn: Player;
+  locked: boolean;
+  play: (index: number) => void;
+  undo: () => void;
+  newRound: () => void;
 }
 
-export const Board: React.FC<BoardProps> = ({
-  board,
-  winningLine,
-  isGameOver,
-  isAiThinking,
-  currentTurn,
-  onSquareClick,
-}) => {
-  const squareRefs = useRef<(HTMLButtonElement | null)[]>([]);
+export function Board({ board, winningLine, turn, locked, play, undo, newRound }: BoardProps) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [active, setActive] = useState(0);
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLButtonElement>) => {
-    let nextIndex: number | null = null;
-
-    switch (e.key) {
-      case 'ArrowUp':
-        e.preventDefault();
-        if (index - 3 >= 0) nextIndex = index - 3;
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        if (index + 3 < 9) nextIndex = index + 3;
-        break;
-      case 'ArrowLeft':
-        e.preventDefault();
-        if (index % 3 > 0) nextIndex = index - 1;
-        break;
-      case 'ArrowRight':
-        e.preventDefault();
-        if (index % 3 < 2) nextIndex = index + 1;
-        break;
-      case 'Home':
-        e.preventDefault();
-        nextIndex = 0;
-        break;
-      case 'End':
-        e.preventDefault();
-        nextIndex = 8;
-        break;
-      default:
-        break;
+  function onKey(event: KeyboardEvent, index: number) {
+    if (event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) return;
+    let next = index;
+    switch (event.key) {
+      case 'ArrowRight': if (index % 3 < 2) next++; break;
+      case 'ArrowLeft': if (index % 3 > 0) next--; break;
+      case 'ArrowUp': next = Math.max(index % 3, index - 3); break;
+      case 'ArrowDown': next = Math.min(6 + index % 3, index + 3); break;
+      case 'Home': next = 0; break;
+      case 'End': next = 8; break;
+      case 'u': if (!event.repeat) undo(); break;
+      case 'n': if (!event.repeat) newRound(); break;
+      default: return;
     }
-
-    if (nextIndex !== null) {
-      squareRefs.current[nextIndex]?.focus();
-    }
-  };
+    event.preventDefault();
+    refs.current[next]?.focus();
+  }
 
   return (
-    <div
-      role="grid"
-      aria-label="Tic Tac Toe Board"
-      className="w-full max-w-[340px] sm:max-w-[380px] aspect-square mx-auto p-3 sm:p-4 border-2 border-ink bg-paper-muted shadow-brutal mb-4 flex items-center justify-center relative"
-    >
-      <div className="grid grid-cols-3 grid-rows-3 gap-2.5 sm:gap-3 w-full h-full">
-        {board.map((value, index) => {
-          const isWinning = winningLine !== null && winningLine.includes(index);
-          return (
-            <Square
-              key={index}
-              index={index}
-              value={value}
-              isWinningSquare={isWinning}
-              isGameOver={isGameOver}
-              isAiThinking={isAiThinking}
-              currentTurn={currentTurn}
-              onClick={() => onSquareClick(index)}
-              onKeyDown={(e) => handleKeyDown(index, e)}
-              buttonRef={(el) => {
-                squareRefs.current[index] = el;
-              }}
-            />
-          );
-        })}
+    <div className="felt">
+      <div className="play-grid" role="grid" aria-label="Tic Tac Toe board">
+        {[0, 1, 2].map(row => (
+          <div role="row" key={row} className="board-row">
+            {[0, 1, 2].map(col => {
+              const i = row * 3 + col;
+              const value = board[i];
+              const winning = winningLine?.includes(i);
+              return (
+                <div role="gridcell" className={'cell' + (winning ? ' winning' : '')} key={col}>
+                  <button type="button" ref={el => { refs.current[i] = el; }}
+                    aria-label={`Row ${row + 1}, column ${col + 1}, ${value ?? 'empty'}${winning ? ', winning square' : ''}`}
+                    aria-disabled={locked || !!value} tabIndex={active === i ? 0 : -1}
+                    onFocus={() => setActive(i)} onKeyDown={e => onKey(e, i)}
+                    onClick={() => { if (!locked && !value) play(i); }}>
+                    {value ? <span className={'mark mark-' + value} aria-hidden="true"/>
+                      : <><span className="pip" aria-hidden="true"/>{!locked && <span className={'preview-mark mark-' + turn} aria-hidden="true"/>}</>}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );
-};
+}

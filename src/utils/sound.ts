@@ -1,4 +1,5 @@
 import type { Player } from '../types/game';
+import { readSaved, writeSaved } from './storage';
 
 class SoundEffects {
   private ctx: AudioContext | null = null;
@@ -6,7 +7,7 @@ class SoundEffects {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      const savedMute = localStorage.getItem('ttt_muted');
+      const savedMute = readSaved('ttt_muted');
       if (savedMute !== null) {
         this.isMuted = savedMute === 'true';
       }
@@ -16,7 +17,7 @@ class SoundEffects {
   public toggleMute(): boolean {
     this.isMuted = !this.isMuted;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('ttt_muted', String(this.isMuted));
+      writeSaved('ttt_muted', String(this.isMuted));
     }
     return this.isMuted;
   }
@@ -32,7 +33,7 @@ class SoundEffects {
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      void this.ctx.resume().catch(() => {});
     }
     return this.ctx;
   }

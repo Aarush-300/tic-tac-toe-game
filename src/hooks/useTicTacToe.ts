@@ -1,404 +1,113 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { BoardState, GameMode, Player, ScoreState, Winner, WinningLine } from '../types/game';
-import { checkWinner, getAvailableMoves } from '../utils/gameLogic';
-import { getClubPlayerMove, getTacticianMove, getAdaptiveBotMove } from '../utils/aiEngine';
-import { qLearningAgent, getBotPersona } from '../utils/qLearning';
+import type { GameMode, Player, ScoreState } from '../types/game';
+import { boardFromMoves, checkWinner } from '../utils/gameLogic';
+import { getAdaptiveBotMove, getClubPlayerMove, getTacticianMove } from '../utils/aiEngine';
+import { QLearningAgent } from '../utils/qLearning';
+import { isCounter, readSaved, writeSaved } from '../utils/storage';
 import { sound } from '../utils/sound';
 
-interface HistoryStep {
-  board: BoardState;
-  turn: Player;
-  winner: Winner;
-  winningLine: WinningLine;
+const SCORES = 'ttt_scores_v2';
+const MODE = 'ttt_gamemode_v2';
+const zero: ScoreState = { x: 0, ties: 0, o: 0 };
+const scoreKey = { X: 'x', O: 'o', Draw: 'ties' } as const;
+
+function initialScores(): ScoreState {
+  try {
+    const data = JSON.parse(readSaved(SCORES) ?? 'null');
+    if (data && [data.x, data.o, data.ties].every(isCounter)) {
+      return { x: data.x, o: data.o, ties: data.ties };
+    }
+  } catch { /* Start a fresh scorecard if the old one is unreadable. */ }
+  return zero;
 }
 
-const STORAGE_KEY_SCORES = 'ttt_scores_v2';
-const STORAGE_KEY_MODE = 'ttt_gamemode_v2';
-
-const INITIAL_BOARD: BoardState = Array(9).fill(null);
-const INITIAL_SCORES: ScoreState = { x: 0, o: 0, ties: 0 };
-
-function getInitialScores(): ScoreState {
-  if (typeof window === 'undefined') return INITIAL_SCORES;
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY_SCORES);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (
-        typeof parsed.x === 'number' &&
-        typeof parsed.o === 'number' &&
-        typeof parsed.ties === 'number'
-      ) {
-        return parsed;
-      }
-    }
-  } catch {
-    // Ignore corrupted json
-  }
-  return INITIAL_SCORES;
-}
-
-function getInitialMode(): GameMode {
-  if (typeof window === 'undefined') return 'ai-casual';
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY_MODE);
-    if (
-      saved === 'pvp' ||
-      saved === 'ai-casual' ||
-      saved === 'ai-tactician' ||
-      saved === 'ai-adaptive'
-    ) {
-      return saved;
-    }
-  } catch {
-    // Ignore error
-  }
-  return 'ai-casual';
+function initialMode(): GameMode {
+  const saved = readSaved(MODE);
+  if (saved === 'pvp' || saved === 'ai-adaptive' || saved === 'ai-casual') return saved;
+  return 'ai-tactician';
 }
 
 export function useTicTacToe() {
-  const [board, setBoard] = useState<BoardState>(INITIAL_BOARD);
-  const [turn, setTurn] = useState<Player>('X');
-  const [gameMode, setGameMode] = useState<GameMode>(getInitialMode);
-  const [winner, setWinner] = useState<Winner>(null);
-  const [winningLine, setWinningLine] = useState<WinningLine>(null);
-  const [scores, setScores] = useState<ScoreState>(getInitialScores);
-  const [history, setHistory] = useState<HistoryStep[]>([]);
-  const [isAiThinking, setIsAiThinking] = useState(false);
-  const [isMuted, setIsMuted] = useState(sound.isMuted);
-  const [qGeneration, setQGeneration] = useState<number>(() => qLearningAgent.gamesLearned);
-  const [focusLevel, setFocusLevelState] = useState<number>(() => qLearningAgent.focusLevel);
-  const [autoAdapt, setAutoAdaptState] = useState<boolean>(() => qLearningAgent.autoAdapt);
-  const [botTemperature, setBotTemperature] = useState<number>(() => qLearningAgent.botTemperature);
+  const [moves, setMoves] = useState<number[]>([]);
+  const [round, setRound] = useState(1);
+  const [gameMode, setMode] = useState<GameMode>(initialMode);
+  const [scores, setScores] = useState(initialScores);
+  const [isMuted, setMuted] = useState(sound.isMuted);
+  const [agent, setAgent] = useState(() => gameMode === 'ai-adaptive' ? new QLearningAgent() : null);
+  const [, refreshTuner] = useState(0);
+  const board = useMemo(() => boardFromMoves(moves), [moves]);
+  const { winner, winningLine } = checkWinner(board);
+  const turn: Player = moves.length % 2 === 0 ? 'X' : 'O';
+  const isAiThinking = !winner && turn === 'O' && gameMode !== 'pvp';
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => { writeSaved(SCORES, JSON.stringify(scores)); }, [scores]);
+  useEffect(() => { writeSaved(MODE, gameMode); }, [gameMode]);
 
-  // Dynamic bot persona and mood based on focusLevel
-  const botPersona = useMemo(() => {
-    return getBotPersona(focusLevel);
-  }, [focusLevel]);
+  const place = useCallback((index: number) => {
+    if (winner || board[index] !== null) return;
+    const next = [...moves, index];
+    const result = checkWinner(boardFromMoves(next)).winner;
+    sound.playMove(turn);
+    setMoves(next);
+    if (result) {
+      if (result === 'Draw') sound.playDraw();
+      else sound.playWin();
+      const key = scoreKey[result];
+      setScores(prev => ({ ...prev, [key]: Math.min(Number.MAX_SAFE_INTEGER, prev[key] + 1) }));
+      if (gameMode === 'ai-adaptive') agent?.finalizeGame(next, result);
+    }
+  }, [agent, board, gameMode, moves, turn, winner]);
 
-  const botMood = useMemo(() => {
-    return {
-      label: botPersona.title,
-      colorClass: botPersona.badgeClass,
-    };
-  }, [botPersona]);
-
-  // Sync scores to localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(scores));
-    } catch {
-      // Ignore storage errors
-    }
-  }, [scores]);
+    if (!isAiThinking) return;
+    timer.current = setTimeout(() => {
+      let move: number | null;
+      if (gameMode === 'ai-adaptive' && agent) move = getAdaptiveBotMove(board, 'O', agent);
+      else if (gameMode === 'ai-casual') move = getClubPlayerMove(board);
+      else move = getTacticianMove(board);
+      if (move !== null) place(move);
+    }, 320);
+    return () => clearTimeout(timer.current);
+  }, [agent, board, gameMode, isAiThinking, place]);
 
-  // Sync mode to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_MODE, gameMode);
-    } catch {
-      // Ignore storage errors
-    }
-  }, [gameMode]);
-
-  // Clean up pending AI timer on unmount
-  useEffect(() => {
-    return () => {
-      if (aiTimerRef.current) {
-        clearTimeout(aiTimerRef.current);
-      }
-    };
-  }, []);
-
-  const handleToggleMute = useCallback(() => {
-    const nextMuted = sound.toggleMute();
-    setIsMuted(nextMuted);
-  }, []);
-
-  // Real-time confidence telemetry for the adaptive agent
-  const qConfidence = useMemo(() => {
-    const { qValue, winProb } = qLearningAgent.getConfidence(board, 'O');
-    const scoreStr = (qValue >= 0 ? '+' : '') + qValue.toFixed(2);
-    return {
-      qValue,
-      winProb,
-      scoreStr,
-      winProbStr: `${winProb}%`,
-      display: `Confidence: ${scoreStr} (${winProb}% Win Prob)`,
-    };
-  }, [board]);
-
-  // Handle game end sound, reinforcement update & score update
-  const handleGameEnd = useCallback(
-    (winningPlayer: Winner) => {
-      if (winningPlayer === 'X') {
-        sound.playWin();
-        setScores((prev) => ({ ...prev, x: prev.x + 1 }));
-      } else if (winningPlayer === 'O') {
-        sound.playWin();
-        setScores((prev) => ({ ...prev, o: prev.o + 1 }));
-      } else if (winningPlayer === 'Draw') {
-        sound.playDraw();
-        setScores((prev) => ({ ...prev, ties: prev.ties + 1 }));
-      }
-
-      // Reinforce Q-Learning Agent if in adaptive mode
-      if (gameMode === 'ai-adaptive') {
-        const nextGen = qLearningAgent.finalizeGame(winningPlayer, 'O');
-        setQGeneration(nextGen);
-        setFocusLevelState(qLearningAgent.focusLevel);
-        setAutoAdaptState(qLearningAgent.autoAdapt);
-        setBotTemperature(qLearningAgent.botTemperature);
-      }
-    },
-    [gameMode]
-  );
-
-  // AI Move Execution
-  useEffect(() => {
-    if (gameMode === 'pvp' || turn !== 'O' || winner !== null) {
-      return;
-    }
-
-    const availableMoves = getAvailableMoves(board);
-    if (availableMoves.length === 0) return;
-
-    aiTimerRef.current = setTimeout(() => {
-      let move: number | null = null;
-      if (gameMode === 'ai-casual') {
-        move = getClubPlayerMove(board, 'O');
-      } else if (gameMode === 'ai-tactician') {
-        move = getTacticianMove(board, 'O');
-      } else if (gameMode === 'ai-adaptive') {
-        move = getAdaptiveBotMove(board, 'O');
-      }
-
-      if (move !== null && board[move] === null) {
-        // Record history before AI plays
-        setHistory((prev) => [
-          ...prev,
-          {
-            board: [...board],
-            turn: 'O',
-            winner: null,
-            winningLine: null,
-          },
-        ]);
-
-        const nextBoard = [...board];
-        nextBoard[move] = 'O';
-        sound.playMove('O');
-        setBoard(nextBoard);
-
-        const outcome = checkWinner(nextBoard);
-        if (outcome.winner) {
-          setWinner(outcome.winner);
-          setWinningLine(outcome.winningLine);
-          handleGameEnd(outcome.winner);
-        } else {
-          setTurn('X');
-        }
-      }
-
-      setIsAiThinking(false);
-    }, 300);
-
-    return () => {
-      if (aiTimerRef.current) {
-        clearTimeout(aiTimerRef.current);
-      }
-    };
-  }, [board, turn, gameMode, winner, handleGameEnd]);
-
-  // Player clicks a square
-  const handleSquareClick = useCallback(
-    (index: number) => {
-      if (board[index] !== null || winner !== null || isAiThinking) {
-        return;
-      }
-
-      // In AI mode, player plays as 'X'
-      if (gameMode !== 'pvp' && turn !== 'X') {
-        return;
-      }
-
-      // Record human step for Q-learning counterfactual replay
-      if (gameMode === 'ai-adaptive') {
-        qLearningAgent.recordHumanStep(board, index, 'X');
-      }
-
-      // Record current state in history before moving
-      setHistory((prev) => [
-        ...prev,
-        {
-          board: [...board],
-          turn,
-          winner,
-          winningLine,
-        },
-      ]);
-
-      const nextBoard = [...board];
-      nextBoard[index] = turn;
-      sound.playMove(turn);
-      setBoard(nextBoard);
-
-      const outcome = checkWinner(nextBoard);
-      if (outcome.winner) {
-        setWinner(outcome.winner);
-        setWinningLine(outcome.winningLine);
-        handleGameEnd(outcome.winner);
-      } else {
-        setTurn((prevTurn) => (prevTurn === 'X' ? 'O' : 'X'));
-        if (gameMode !== 'pvp') {
-          setIsAiThinking(true);
-        }
-      }
-    },
-    [board, winner, isAiThinking, gameMode, turn, winningLine, handleGameEnd]
-  );
-
-  // Undo Move logic
-  const handleUndo = useCallback(() => {
-    if (isAiThinking || history.length === 0) return;
-
+  function newRound() {
+    clearTimeout(timer.current);
+    setMoves([]);
+    setRound(value => value + 1);
     sound.playClick();
+  }
 
-    if (gameMode === 'ai-adaptive') {
-      qLearningAgent.resetCurrentEpisode();
+  function selectMode(mode: GameMode) {
+    if (mode === gameMode) return;
+    if (mode === 'ai-adaptive' && !agent) setAgent(new QLearningAgent());
+    newRound();
+    setMode(mode);
+  }
+
+  function undo() {
+    if (!moves.length) return;
+    clearTimeout(timer.current);
+    if (winner) {
+      const key = scoreKey[winner];
+      setScores(prev => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }));
+      if (gameMode === 'ai-adaptive') agent?.undoResult();
     }
-
-    // If game ended, undo score change
-    if (winner !== null) {
-      setScores((prev) => {
-        if (winner === 'X') return { ...prev, x: Math.max(0, prev.x - 1) };
-        if (winner === 'O') return { ...prev, o: Math.max(0, prev.o - 1) };
-        if (winner === 'Draw') return { ...prev, ties: Math.max(0, prev.ties - 1) };
-        return prev;
-      });
-    }
-
-    if (gameMode === 'pvp') {
-      const prevStep = history[history.length - 1];
-      setBoard(prevStep.board);
-      setTurn(prevStep.turn);
-      setWinner(prevStep.winner);
-      setWinningLine(prevStep.winningLine);
-      setHistory((prev) => prev.slice(0, -1));
-    } else {
-      const stepsToUndo = winner === 'X' ? 1 : Math.min(2, history.length);
-      const targetIndex = history.length - stepsToUndo;
-
-      if (targetIndex >= 0) {
-        const targetStep = history[targetIndex];
-        setBoard(targetStep.board);
-        setTurn('X');
-        setWinner(null);
-        setWinningLine(null);
-        setHistory((prev) => prev.slice(0, targetIndex));
-      } else {
-        setBoard(INITIAL_BOARD);
-        setTurn('X');
-        setWinner(null);
-        setWinningLine(null);
-        setHistory([]);
-      }
-    }
-  }, [isAiThinking, history, winner, gameMode]);
-
-  // Start new round
-  const handleNewRound = useCallback(() => {
-    if (aiTimerRef.current) {
-      clearTimeout(aiTimerRef.current);
-    }
+    // Return to the last human decision, including a draw on X's ninth move
+    // or a human move whose scheduled AI reply has not yet arrived.
+    const count = gameMode === 'pvp' || moves.length % 2 === 1 ? 1 : 2;
+    setMoves(moves.slice(0, -count));
     sound.playClick();
-    if (gameMode === 'ai-adaptive') {
-      qLearningAgent.resetCurrentEpisode();
-    }
-    setBoard(INITIAL_BOARD);
-    setTurn('X');
-    setWinner(null);
-    setWinningLine(null);
-    setHistory([]);
-    setIsAiThinking(false);
-  }, [gameMode]);
-
-  // Reset all scores
-  const handleResetScores = useCallback(() => {
-    sound.playClick();
-    setScores(INITIAL_SCORES);
-  }, []);
-
-  // Select game mode
-  const handleSelectMode = useCallback((newMode: GameMode) => {
-    if (aiTimerRef.current) {
-      clearTimeout(aiTimerRef.current);
-    }
-    sound.playClick();
-    if (newMode === 'ai-adaptive') {
-      qLearningAgent.resetCurrentEpisode();
-    }
-    setGameMode(newMode);
-    setBoard(INITIAL_BOARD);
-    setTurn('X');
-    setWinner(null);
-    setWinningLine(null);
-    setHistory([]);
-    setIsAiThinking(false);
-  }, []);
-
-  // Wipe Q-learning agent memory
-  const handleResetQMemory = useCallback(() => {
-    sound.playClick();
-    qLearningAgent.resetMemory();
-    setQGeneration(0);
-    setFocusLevelState(qLearningAgent.focusLevel);
-    setAutoAdaptState(qLearningAgent.autoAdapt);
-    setBotTemperature(qLearningAgent.botTemperature);
-  }, []);
-
-  // Update focus level directly (disables autoAdapt)
-  const handleSetFocusLevel = useCallback((level: number) => {
-    qLearningAgent.setFocusLevel(level, true);
-    setFocusLevelState(qLearningAgent.focusLevel);
-    setAutoAdaptState(qLearningAgent.autoAdapt);
-    setBotTemperature(qLearningAgent.botTemperature);
-  }, []);
-
-  // Toggle or set autoAdapt rubber-banding
-  const handleSetAutoAdapt = useCallback((enabled: boolean) => {
-    qLearningAgent.setAutoAdapt(enabled);
-    setAutoAdaptState(qLearningAgent.autoAdapt);
-  }, []);
+  }
 
   return {
-    board,
-    turn,
-    gameMode,
-    winner,
-    winningLine,
-    scores,
-    history,
-    isAiThinking,
-    isMuted,
-    qGeneration,
-    qConfidence,
-    focusLevel,
-    autoAdapt,
-    botTemperature,
-    botMood,
-    botPersona,
-    canUndo: history.length > 0 && !isAiThinking,
-    handleSquareClick,
-    handleUndo,
-    handleNewRound,
-    handleResetScores,
-    handleSelectMode,
-    handleToggleMute,
-    handleResetQMemory,
-    handleSetFocusLevel,
-    handleSetAutoAdapt,
+    board, moves, round, turn, gameMode, scores, winner, winningLine, isMuted, isAiThinking, agent,
+    play: (index: number) => { if (!isAiThinking) place(index); },
+    newRound, undo, selectMode,
+    resetScores: () => setScores(zero),
+    toggleMute: () => setMuted(sound.toggleMute()),
+    setFocus: (level: number) => { agent?.setFocusLevel(level); refreshTuner(n => n + 1); },
+    setAuto: (enabled: boolean) => { agent?.setAutoAdapt(enabled); refreshTuner(n => n + 1); },
+    resetMemory: () => { agent?.resetMemory(); refreshTuner(n => n + 1); },
   };
 }
