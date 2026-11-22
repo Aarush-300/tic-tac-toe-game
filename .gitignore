@@ -18,12 +18,11 @@ coverage/
 .impeccable/*.local.json
 .impeccable/review/
 .impeccable/mocks/
-.impeccable/
+.impeccable/questions/
 
 # Browser test output
 playwright-report/
 test-results/
-.github/
 # Logs and editor files
 logs/
 *.log

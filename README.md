@@ -67,6 +67,8 @@ For a Git-integrated Pages project, use these settings. [Cloudflare build config
 
 The application requires no secrets, backend services or Pages Functions. The Wrangler configuration points to the same output directory used by the dashboard. [Wrangler configuration](https://developers.cloudflare.com/pages/functions/wrangler-configuration/)
 
+For Wrangler-based deployments, run `npm run build` followed by `npm run deploy`. The deploy script explicitly runs `wrangler pages deploy dist`. Cloudflare's Git integration must use a Pages build with output directory `dist`, and an empty deploy command. Do not configure `npx wrangler deploy`, which deploys Workers and fails for this static Pages site.
+
 ## Security and privacy
 
 Fonts, scripts and styles ship with the site. Pages reads `dist/_headers` to enforce a same-origin content security policy, disable framing and MIME sniffing, and restrict browser permissions. Hashed assets have immutable cache headers. Saved scores and bot data are validated before use. [Cloudflare Pages headers](https://developers.cloudflare.com/pages/configuration/headers/)

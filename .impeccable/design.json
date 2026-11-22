@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-22T15:26:15.775Z",
+  "title": "Design System: Grid Club",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "displayName": "Club paper",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0048 100.8)",
+          "oklch(26% 0.0077 100.8)",
+          "oklch(38% 0.0099 100.8)",
+          "oklch(49% 0.0106 100.8)",
+          "oklch(61% 0.0100 100.8)",
+          "oklch(72% 0.0082 100.8)",
+          "oklch(84% 0.0051 100.8)",
+          "oklch(95% 0.0017 100.8)"
+        ]
+      },
+      "ink": {
+        "displayName": "Deep green ink",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0218 169.5)",
+          "oklch(26% 0.0349 169.5)",
+          "oklch(38% 0.0446 169.5)",
+          "oklch(49% 0.0479 169.5)",
+          "oklch(61% 0.0451 169.5)",
+          "oklch(72% 0.0369 169.5)",
+          "oklch(84% 0.0231 169.5)",
+          "oklch(95% 0.0075 169.5)"
+        ]
+      },
+      "muted": {
+        "displayName": "Muted ink",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0114 153.6)",
+          "oklch(26% 0.0183 153.6)",
+          "oklch(38% 0.0234 153.6)",
+          "oklch(49% 0.0251 153.6)",
+          "oklch(61% 0.0237 153.6)",
+          "oklch(72% 0.0194 153.6)",
+          "oklch(84% 0.0121 153.6)",
+          "oklch(95% 0.0039 153.6)"
+        ]
+      },
+      "line": {
+        "displayName": "Paper rule",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0100 118.3)",
+          "oklch(26% 0.0161 118.3)",
+          "oklch(38% 0.0205 118.3)",
+          "oklch(49% 0.0220 118.3)",
+          "oklch(61% 0.0207 118.3)",
+          "oklch(72% 0.0170 118.3)",
+          "oklch(84% 0.0106 118.3)",
+          "oklch(95% 0.0034 118.3)"
+        ]
+      },
+      "green": {
+        "displayName": "Table felt",
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.0266 168.3)",
+          "oklch(26% 0.0428 168.3)",
+          "oklch(38% 0.0545 168.3)",
+          "oklch(49% 0.0586 168.3)",
+          "oklch(61% 0.0552 168.3)",
+          "oklch(72% 0.0452 168.3)",
+          "oklch(84% 0.0283 168.3)",
+          "oklch(95% 0.0092 168.3)"
+        ]
+      },
+      "lime": {
+        "displayName": "Citron X",
+        "role": "secondary",
+        "tonalRamp": [
+          "oklch(15% 0.0611 118.3)",
+          "oklch(26% 0.0980 118.3)",
+          "oklch(38% 0.1251 118.3)",
+          "oklch(49% 0.1344 118.3)",
+          "oklch(61% 0.1265 118.3)",
+          "oklch(72% 0.1036 118.3)",
+          "oklch(84% 0.0648 118.3)",
+          "oklch(95% 0.0210 118.3)"
+        ]
+      },
+      "coral": {
+        "displayName": "Coral O",
+        "role": "tertiary",
+        "tonalRamp": [
+          "oklch(15% 0.0503 44.0)",
+          "oklch(26% 0.0808 44.0)",
+          "oklch(38% 0.1030 44.0)",
+          "oklch(49% 0.1107 44.0)",
+          "oklch(61% 0.1042 44.0)",
+          "oklch(72% 0.0854 44.0)",
+          "oklch(84% 0.0534 44.0)",
+          "oklch(95% 0.0173 44.0)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Game title",
+        "purpose": "The masthead title uses a single italic word."
+      },
+      "headline": {
+        "displayName": "Section heading",
+        "purpose": "Opponent selection, scorecard and rules headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Instructions and supporting copy."
+      },
+      "action": {
+        "displayName": "Round action",
+        "purpose": "Labels on New round and Undo move."
+      },
+      "score": {
+        "displayName": "Score",
+        "purpose": "Tabular totals in the scorecard."
+      }
+    },
+    "shadows": [
+      {
+        "name": "Table frame",
+        "value": "0 5px 10px -8px #173d2e",
+        "purpose": "A shallow shadow under the playing table."
+      }
+    ],
+    "motion": [
+      {
+        "name": "Mark placement",
+        "value": "place .16s ease-out",
+        "purpose": "A mark settles from 4px above its cell at 1.08 scale and 0.45 opacity. Reduced-motion preference suppresses the animation."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "Stacked table and rail",
+        "value": "740px"
+      },
+      {
+        "name": "Compact navigation",
+        "value": "430px"
+      },
+      {
+        "name": "Compact masthead",
+        "value": "345px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "New round",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The wider action below the board starts a fresh round.",
+      "html": "<button class=\"ds-primary\" type=\"button\"><svg aria-hidden=\"true\" width=\"1.1rem\" height=\"1.1rem\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"/><path d=\"M3 3v5h5\"/></svg>New round</button>",
+      "css": ".ds-primary { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; border-radius: 8px; color: var(--ink,#183d31); font: 700 .9rem/1.45 var(--sans,'DM Sans Variable',system-ui,sans-serif); cursor: pointer; } .ds-primary { border: 0; background: var(--lime,#d8ed82); } .ds-primary:hover { background: #cbe36c; } .ds-primary:focus-visible { outline: 3px solid #996515; outline-offset: 3px; }"
+    },
+    {
+      "name": "Undo move",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The secondary round action has a thin outline and a disabled state.",
+      "html": "<button class=\"ds-secondary\" type=\"button\"><svg aria-hidden=\"true\" width=\"1.1rem\" height=\"1.1rem\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 14 4 9l5-5\"/><path d=\"M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11\"/></svg>Undo move</button>",
+      "css": ".ds-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; border-radius: 8px; color: var(--ink,#183d31); font: 700 .9rem/1.45 var(--sans,'DM Sans Variable',system-ui,sans-serif); cursor: pointer; } .ds-secondary { border: 1px solid #aeb9a7; background: transparent; } .ds-secondary:hover:not(:disabled) { background: #eaeddf; } .ds-secondary:disabled { color: #747d71; border-color: var(--line,#d4d8c8); cursor: default; } .ds-secondary:focus-visible { outline: 3px solid #996515; outline-offset: 3px; }"
+    },
+    {
+      "name": "Reset scores",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "A compact action sits beside the scorecard heading.",
+      "html": "<button type=\"button\" class=\"ds-reset\"><svg aria-hidden=\"true\" width=\"1.1rem\" height=\"1.1rem\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"/><path d=\"M3 3v5h5\"/></svg>Reset scores</button>",
+      "css": ".ds-reset { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 5px 8px; background: transparent; border: 0; border-radius: 6px; cursor: pointer; color: var(--muted,#58675c); font: 600 .77rem/1.45 var(--sans,'DM Sans Variable',system-ui,sans-serif); } .ds-reset svg { width: 13px; } .ds-reset:hover { background: #e9ecdf; } .ds-reset:focus-visible { outline: 3px solid #996515; outline-offset: 3px; }"
+    },
+    {
+      "name": "Game tools",
+      "kind": "nav",
+      "refersTo": "game-tools",
+      "description": "A fine vertical rule separates sound from the rules dialog.",
+      "html": "<nav class=\"ds-tools\" aria-label=\"Game tools\"><button type=\"button\" aria-label=\"Sound on\" aria-pressed=\"true\"><svg aria-hidden=\"true\" width=\"1.1rem\" height=\"1.1rem\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z\"/><path d=\"M16 9a5 5 0 0 1 0 6\"/><path d=\"M19.364 18.364a9 9 0 0 0 0-12.728\"/></svg><span>Sound on</span></button><i aria-hidden=\"true\"></i><button type=\"button\"><svg aria-hidden=\"true\" width=\"1.1rem\" height=\"1.1rem\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\"/><path d=\"M12 17h.01\"/></svg>How to play</button></nav>",
+      "css": ".ds-tools { display: flex; align-items: center; gap: 12px; } .ds-tools button { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 5px 8px; background: transparent; border: 0; border-radius: 6px; cursor: pointer; color: var(--ink,#183d31); font: 600 .85rem/1.45 var(--sans,'DM Sans Variable',system-ui,sans-serif); } .ds-tools i { height: 15px; width: 1px; background: var(--line,#d4d8c8); } .ds-tools button:hover { background: #e9ecdf; } .ds-tools button:focus-visible { outline: 3px solid #996515; outline-offset: 3px; } @media(max-width:430px) { .ds-tools { gap: 3px; } .ds-tools button { font-size: .8rem; } .ds-tools button:first-child { min-width: 40px; justify-content: center; } .ds-tools button span { display: none; } }"
+    },
+    {
+      "name": "Opponent choice",
+      "kind": "input",
+      "refersTo": "opponent-row",
+      "description": "The entire row selects the opponent. The portrait, description and radio share a single label.",
+      "html": "<label class=\"ds-opponent\"><input type=\"radio\" name=\"ds-opponent\"><span class=\"ds-avatar\"><svg aria-hidden=\"true\" width=\"29\" height=\"29\" viewBox=\"-1 -2 14 14\" shape-rendering=\"crispEdges\"><path fill=\"currentColor\" d=\"M4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM7 0h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM8 1h1v1h-1zM9 1h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM11 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM11 6h1v1h-1zM1 7h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM1 8h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1z\"/></svg></span><span class=\"ds-copy\"><strong>Club Player</strong><span>Casual · plays for fun</span></span><i aria-hidden=\"true\"></i></label>",
+      "css": ".ds-opponent { display: flex; box-sizing: border-box; position: relative; align-items: center; gap: 13px; min-height: 61px; padding: 9px 14px 9px 10px; background: #fdfcf5; color: var(--ink,#183d31); border: 1px solid var(--line,#d4d8c8); border-radius: 10px; font: 400 .79rem/1.45 var(--sans,'DM Sans Variable',system-ui,sans-serif); cursor: pointer; } .ds-opponent input { position: absolute; width: 1px; height: 1px; opacity: 0; } .ds-avatar { display: grid; flex: none; place-items: center; width: 40px; height: 40px; border-radius: 8px; background: #e0e7c6; color: #425d43; } .ds-copy { display: grid; gap: 1px; color: var(--muted,#58675c); } .ds-copy strong { color: var(--ink,#183d31); font-size: .96rem; font-weight: 720; } .ds-opponent i { box-sizing: border-box; width: 16px; height: 16px; margin-left: auto; border: 1px solid #9aa38e; border-radius: 50%; } .ds-opponent:hover { border-color: #8c9d85; } .ds-opponent:has(input:checked) { background: #e9efd6; border-color: #809461; } .ds-opponent input:checked ~ i { border: 5px solid var(--green,#204f3f); background: var(--paper,#f8f7ef); } .ds-opponent:has(input:focus-visible) { outline: 3px solid #996515; outline-offset: 2px; }"
+    },
+    {
+      "name": "Playing grid",
+      "kind": "custom",
+      "refersTo": "felt-grid",
+      "description": "A static example of the square grid, center pips and two piece silhouettes.",
+      "html": "<div class=\"ds-felt\" role=\"img\" aria-label=\"Tic Tac Toe board. X is upper left and O is in the center.\"><div class=\"ds-board\"><span><i class=\"ds-cross\"></i></span><span><i class=\"ds-pip\"></i></span><span><i class=\"ds-pip\"></i></span><span><i class=\"ds-pip\"></i></span><span><i class=\"ds-ring\"></i></span><span><i class=\"ds-pip\"></i></span><span><i class=\"ds-pip\"></i></span><span><i class=\"ds-pip\"></i></span><span><i class=\"ds-pip\"></i></span></div></div>",
+      "css": ".ds-felt { display: grid; place-items: center; padding: 24px 22px; border-radius: 8px; background: radial-gradient(#c2d2a51f .8px,transparent 1px) 0 0 / 5px 5px, var(--green,#204f3f); } .ds-board { display: grid; width: min(100%,318px); aspect-ratio: 1; grid-template: repeat(3,1fr) / repeat(3,1fr); border: 1px solid #92ae96; border-radius: 3px; } .ds-board span { display: grid; place-items: center; } .ds-board span:nth-child(n+4) { border-top: 2px solid #99b39c; } .ds-board span:not(:nth-child(3n+1)) { border-left: 2px solid #99b39c; } .ds-pip { width: 3px; height: 3px; border-radius: 50%; background: #94ad8f; } .ds-cross,.ds-ring { box-sizing: border-box; width: 1em; height: 1em; font-size: clamp(42px,5vw,58px); } .ds-cross { background: var(--lime,#d8ed82); clip-path: polygon(18% 0,50% 32%,82% 0,100% 18%,68% 50%,100% 82%,82% 100%,50% 68%,18% 100%,0 82%,32% 50%,0 18%); } .ds-ring { border: .22em solid var(--coral,#ffab87); border-radius: 50%; } @media (max-width:740px) { .ds-felt { padding: 17px 20px; } .ds-board { width: min(100%,310px); } .ds-ring,.ds-cross { font-size: clamp(38px,12vw,58px); } }"
+    },
+    {
+      "name": "Scorecard",
+      "kind": "custom",
+      "refersTo": "scorecard",
+      "description": "Three aligned totals pair a small symbol and a text label with tabular digits.",
+      "html": "<section class=\"ds-score\"><h2>Scorecard</h2><dl><div><dt><i class=\"ds-score-cross\" aria-hidden=\"true\"></i>X wins</dt><dd>00</dd></div><div><dt><i class=\"ds-score-tie\" aria-hidden=\"true\"></i>Draws</dt><dd>00</dd></div><div><dt><i class=\"ds-score-ring\" aria-hidden=\"true\"></i>O wins</dt><dd>00</dd></div></dl><p>All opponents combined</p></section>",
+      "css": ".ds-score { color: var(--ink,#183d31); padding-top: 16px; border-top: 1px solid var(--line,#d4d8c8); font: 400 1rem/1.45 var(--sans,'DM Sans Variable',system-ui,sans-serif); } .ds-score h2 { margin: 0; font: 400 1.7rem/1.12 var(--serif,'DM Serif Text',Georgia,serif); letter-spacing: -.03em; } .ds-score dl { display: grid; grid-template-columns: repeat(3,1fr); margin: 12px 0 0; text-align: center; } .ds-score dl div + div { border-left: 1px solid var(--line,#d4d8c8); } .ds-score dt { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: .75rem; font-weight: 600; color: var(--muted,#58675c); } .ds-score dt i { box-sizing: border-box; width: 9px; height: 9px; } .ds-score-cross { clip-path: polygon(20% 0,50% 30%,80% 0,100% 20%,70% 50%,100% 80%,80% 100%,50% 70%,20% 100%,0 80%,30% 50%,0 20%); background: #5e7936; } .ds-score-ring { border: 2px solid #a45534; border-radius: 50%; } .ds-score dt .ds-score-tie { height: 2px; background: #758071; } .ds-score dd { margin: 0; font: 650 1.85rem/1.2 var(--sans,'DM Sans Variable',system-ui,sans-serif); font-variant-numeric: tabular-nums; letter-spacing: -.04em; } .ds-score p { color: var(--muted,#58675c); margin: 12px 0 0; text-align: center; font-size: .74rem; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Tabletop club scorecard",
+    "overview": "The green felt holds the game. Cream paper carries the instructions, opponent choices and scores. A tilted four-tile monogram and a pair of illustrated game pieces identify the club before the first move.\n\nThe same cross and ring appear on the board and in its player key. A small serif heading, a thin rule and aligned digits give the scorecard the feel of a printed record.",
+    "keyCharacteristics": [
+      "A pale page around a dark playing table.",
+      "Citron crosses and coral rings with written player labels.",
+      "Serif headings and compact sans-serif controls."
+    ],
+    "rules": [
+      {
+        "name": "Player identification",
+        "body": "Keep X a cross and O a ring on both felt and paper. Use a written label wherever the symbols identify the players.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Do pair each player’s shape with a written name in the board key.",
+      "Do keep round controls next to the board when the columns stack.",
+      "Do respect reduced motion by disabling the mark animation."
+    ],
+    "donts": [
+      "Don't use color alone to communicate a player or radio selection."
+    ]
+  }
+}
